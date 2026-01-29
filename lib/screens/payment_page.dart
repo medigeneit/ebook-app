@@ -125,15 +125,29 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _handleCallbackUri(Uri uri) {
     final path = uri.path.toLowerCase();
     if (_handledResult) return false;
-    if (path.contains('/bkash/choose-plan/') ||
-        path.contains('/bkash/callback')) {
-      final status = uri.queryParameters['status']?.toLowerCase();
-      final paymentId = uri.queryParameters['payment_id'];
-      final success = status == 'success' || paymentId != null;
+
+    // ✅ API callback URL ধরুন
+    final isApiCallback = path.contains('/api/v1/ebooks/') &&
+        path.contains('/subscriptions/callback');
+
+    // ✅ আগের web route fallback (যদি কখনও ব্যবহার হয়)
+    final isWebCallback =
+        path.contains('/bkash/choose-plan') || path.contains('/bkash/callback');
+
+    if (isApiCallback || isWebCallback) {
+      final qp = uri.queryParameters;
+
+      final status = (qp['status'] ?? '').toLowerCase();
+      final paymentId = qp['paymentID'] ?? qp['paymentId'] ?? qp['payment_id'];
+
+      final success =
+          status == 'success' || (paymentId != null && paymentId.isNotEmpty);
+
       _handledResult = true;
       _finish(success);
       return true;
     }
+
     return false;
   }
 

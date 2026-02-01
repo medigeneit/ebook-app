@@ -12,6 +12,7 @@ import '../components/app_layout.dart';
 import '../components/shimmer_ebook_card_loader.dart';
 import '../models/all_ebook.dart';
 import '../models/ebook.dart';
+import '../repositories/ebook_repository.dart';
 import '../utils/token_store.dart';
 import 'ebook_detail.dart';
 import 'device_verification.dart';
@@ -142,6 +143,7 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
 
   Future<void> fetchEbooks() async {
     final apiService = ApiService();
+    EbookRepository.instance.setLoading(true);
     try {
       final list = _normalizeEbookList(
         await apiService.fetchEbookData('/v1/all-ebooks'),
@@ -163,10 +165,12 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
       for (final ebook in ebooks) {
         _ensurePracticeAvailability(ebook);
       }
+      EbookRepository.instance.updateEbooks(ebooks);
     } catch (error) {
       setState(() {
         isLoading = false;
       });
+      EbookRepository.instance.setLoading(false);
       print("Error fetching ebooks: $error");
     }
   }
@@ -207,6 +211,11 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
 
   Future<void> _handleCardTap(BuildContext context, Ebook ebook) async {
     if (!_isActive(ebook)) {
+      final hasSoftcopy = _allEbookById.containsKey(ebook.id);
+      if (!hasSoftcopy) {
+        _showSubscriptionUnavailableMessage(context);
+        return;
+      }
       await _openPurchaseLink(ebook);
       return;
     }
@@ -243,10 +252,6 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
     );
   }
 
-  Future<void> _handleHomeCardTap(BuildContext context, Ebook ebook) async {
-    await _openPurchaseLink(ebook);
-  }
-
   Widget _buildLoadedBody() {
     final pendingEbooks = ebooks.where((ebook) => !_isActive(ebook)).toList();
 
@@ -266,7 +271,7 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
               ebooks: ebooks,
               isLoading: isLoading,
               practiceAvailability: _practiceAvailability,
-              onCardTap: _handleHomeCardTap,
+              onCardTap: _handleCardTap,
               onBuyTap: _openPurchaseLink,
               showStatusBadge: false,
             ),
@@ -500,6 +505,16 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
     } catch (_) {
       return false;
     }
+  }
+
+  void _showSubscriptionUnavailableMessage(BuildContext context) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content:
+            Text('Subscription details are not available for this ebook.'),
+      ),
+    );
   }
 
   Future<void> _ensurePracticeToken(Ebook ebook) async {

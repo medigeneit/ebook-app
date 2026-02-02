@@ -12,9 +12,9 @@ class MyEbooksPage extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: const [
-          SizedBox(height: 8),
-          _SectionHeader(),
-          SizedBox(height: 4),
+          // SizedBox(height: 8),
+          // _SectionHeader(),
+          // SizedBox(height: 4),
           Expanded(child: EbookLibrarySection()),
         ],
       ),

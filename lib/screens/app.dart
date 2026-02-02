@@ -143,10 +143,19 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
   Future<void> fetchEbooks() async {
     final apiService = ApiService();
     try {
-      final list = _normalizeEbookList(
-        await apiService.fetchEbookData('/v1/all-ebooks'),
-      );
+      final allData = await apiService.fetchEbookData('/v1/all-ebooks');
+      final ownedActiveIds = await _fetchOwnedActiveEbookIds(apiService);
+      final list = _normalizeEbookList(allData);
       final parsed = list.map((e) => AllEbook.fromJson(e)).toList();
+      // print('Fetched all ebooks: ${ownedActiveIds}');
+      final filtered = parsed
+          .where(
+            (ebook) =>
+                ebook.productId != 0 &&
+                !ownedActiveIds.contains(ebook.productId),
+          )
+          .toList();
+
       setState(() {
         _allEbookById
           ..clear()
@@ -155,11 +164,12 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
                 .where((ebook) => ebook.softcopyId != 0)
                 .map((ebook) => MapEntry(ebook.softcopyId, ebook)),
           );
-        ebooks = parsed.map((e) => e.toEbook()).toList();
+        ebooks = filtered.map((e) => e.toEbook()).toList();
         isLoading = false;
         _practiceAvailability.clear();
         _practiceFutures.clear();
       });
+
       for (final ebook in ebooks) {
         _ensurePracticeAvailability(ebook);
       }
@@ -255,8 +265,8 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildDeviceVerificationCard(),
-          const SizedBox(height: 12),
+          // _buildDeviceVerificationCard(),
+          // const SizedBox(height: 12),
           if (pendingEbooks.isNotEmpty) ...[
             _buildPurchaseSection(pendingEbooks),
             const SizedBox(height: 12),
@@ -508,6 +518,63 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
     final token = TokenStore.extractTokenFromUrl(ebook.button?.link);
     if (token == null || token.isEmpty) return;
     await TokenStore.savePracticeToken(token);
+  }
+
+  Future<Set<int>> _fetchOwnedActiveEbookIds(ApiService apiService) async {
+    try {
+      final data = await apiService.fetchEbookData('/v1/ebooks');
+      final normalized = _normalizeEbookList(data);
+      print('Normalized owned ebooks: $normalized');
+      final owned = <int>{};
+
+      for (final item in normalized) {
+        final ebook = Ebook.fromJson(item);
+        if (!_isActive(ebook) || ebook.isExpired) continue;
+        owned.add(ebook.id);
+        _collectOwnedIdentifiers(owned, item);
+      }
+
+      return owned;
+    } catch (error) {
+      debugPrint('Failed to load owned ebooks: $error');
+      return {};
+    }
+  }
+
+  void _collectOwnedIdentifiers(
+      Set<int> target, Map<String, dynamic> rawEbook) {
+    const candidateKeys = [
+      'softcopy_id',
+      'softcopyId',
+      'ebook_id',
+      'ebookId',
+      'product_id',
+      'productId',
+      'subscription_id',
+      'subscriptionId',
+      'subcription_id',
+      'subcriptionId',
+      'id',
+    ];
+
+    for (final key in candidateKeys) {
+      final candidate = _parseInt(rawEbook[key]);
+      if (candidate != null && candidate > 0) {
+        target.add(candidate);
+      }
+    }
+  }
+
+  int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final cleaned = value.replaceAll(RegExp(r'[^0-9-]'), '');
+      if (cleaned.isEmpty) return null;
+      return int.tryParse(cleaned);
+    }
+    return null;
   }
 
   List<Map<String, dynamic>> _normalizeEbookList(Map<String, dynamic> data) {

@@ -27,9 +27,6 @@ class _PaymentPageState extends State<PaymentPage> {
   double _progress = 0;
   bool _hasError = false;
   bool _handledResult = false;
-  String? _callbackErrorMessage;
-  Map<String, String>? _callbackErrorDetails;
-  String? _callbackRawPayload;
 
   @override
   Widget build(BuildContext context) {
@@ -120,60 +117,34 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
               ),
             ),
-          if (_callbackErrorMessage != null)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black54,
-                alignment: Alignment.center,
-                child: _buildCallbackErrorOverlay(context),
-              ),
-            ),
         ],
       ),
     );
   }
 
   bool _handleCallbackUri(Uri uri) {
-    if (_handledResult) return false;
     final path = uri.path.toLowerCase();
+    if (_handledResult) return false;
 
     // ✅ API callback URL ধরুন
     final isApiCallback = path.contains('/api/v1/ebooks/') &&
         path.contains('/subscriptions/callback');
 
-    // ? ???? web route fallback (??? ???? ??????? ??)
+    // ✅ আগের web route fallback (যদি কখনও ব্যবহার হয়)
     final isWebCallback =
         path.contains('/bkash/choose-plan') || path.contains('/bkash/callback');
 
     if (isApiCallback || isWebCallback) {
       final qp = uri.queryParameters;
-      final callbackPayload = uri.toString();
 
       final status = (qp['status'] ?? '').toLowerCase();
       final paymentId = qp['paymentID'] ?? qp['paymentId'] ?? qp['payment_id'];
 
       final success =
           status == 'success' || (paymentId != null && paymentId.isNotEmpty);
-      final callbackMessage = _extractCallbackMessage(qp, status);
-      print('Payment callback hit: $uri');
-      debugPrint('Callback payload: $callbackPayload');
-      print('Parameters: $qp');
-      print('Determined status="$status", paymentId=$paymentId');
 
-      if (success) {
-        _handledResult = true;
-        _callbackErrorMessage = null;
-        _callbackErrorDetails = null;
-        _callbackRawPayload = null;
-        _finish(success);
-      } else {
-        setState(() {
-          _handledResult = true;
-          _callbackErrorMessage = callbackMessage;
-          _callbackErrorDetails = qp.isEmpty ? null : qp;
-          _callbackRawPayload = callbackPayload;
-        });
-      }
+      _handledResult = true;
+      _finish(success);
       return true;
     }
 
@@ -186,109 +157,5 @@ class _PaymentPageState extends State<PaymentPage> {
     if (mounted) {
       Navigator.of(context).pop(success);
     }
-  }
-
-  String _extractCallbackMessage(Map<String, String> params, String status) {
-    const keys = [
-      'message',
-      'status_text',
-      'status_message',
-      'error',
-      'error_message',
-      'remarks',
-      'error_description',
-    ];
-    for (final key in keys) {
-      final value = params[key];
-      if (value != null && value.trim().isNotEmpty) {
-        return value.trim();
-      }
-    }
-    if (status.isNotEmpty) {
-      return 'Status: ${status.toUpperCase()}';
-    }
-    return 'Payment failed. Please try again or contact support.';
-  }
-
-  Widget _buildCallbackErrorOverlay(BuildContext context) {
-    final theme = Theme.of(context);
-    final details = _callbackErrorDetails?.entries
-        .map((entry) => '${entry.key}: ${entry.value}')
-        .join('\n');
-    return FractionallySizedBox(
-      widthFactor: 0.92,
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 6,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Payment issue',
-                style: theme.textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _callbackErrorMessage ??
-                    'Something went wrong after the payment attempt.',
-                style: theme.textTheme.bodyLarge,
-              ),
-              if (details != null && details.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Details',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 160),
-                  child: SingleChildScrollView(
-                    child: Text(
-                      details,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
-                ),
-              ],
-              if (_callbackRawPayload != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Callback URL',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 140),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      _callbackRawPayload!,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                ),
-                onPressed: () => _finish(false),
-                child: const Text('Return to subscription'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

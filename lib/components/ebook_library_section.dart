@@ -4,7 +4,6 @@ import '../api/api_service.dart';
 import '../components/ebook_grid.dart';
 import '../components/shimmer_ebook_card_loader.dart';
 import '../components/under_maintanance_snackbar.dart';
-import '../repositories/ebook_repository.dart';
 import '../models/ebook.dart';
 import '../screens/ebook_detail.dart';
 import '../utils/token_store.dart';
@@ -18,49 +17,58 @@ class EbookLibrarySection extends StatefulWidget {
 }
 
 class _EbookLibrarySectionState extends State<EbookLibrarySection> {
+  final List<Ebook> _ebooks = [];
   final Map<int, bool> _practiceAvailability = {};
   final Map<int, Future<bool>> _practiceFutures = {};
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     UpdateManager.checkForUpdate();
+    _fetchEbooks();
+  }
+
+  Future<void> _fetchEbooks() async {
+    final apiService = ApiService();
+    try {
+      final data = await apiService.fetchEbookData('/v1/ebooks');
+      final list = _normalizeEbookList(data);
+      setState(() {
+        _ebooks
+          ..clear()
+          ..addAll(list.map((e) => Ebook.fromJson(e)));
+        _practiceAvailability.clear();
+        _practiceFutures.clear();
+        _isLoading = false;
+      });
+      for (final ebook in _ebooks) {
+        _ensurePracticeAvailability(ebook);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      debugPrint("Error fetching ebooks: $error");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: EbookRepository.instance.isLoading,
-      builder: (context, isLoading, _) {
-        if (isLoading) {
-          return const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: ShimmerEbookCardLoader(),
-          );
-        }
-        return ValueListenableBuilder<List<Ebook>>(
-          valueListenable: EbookRepository.instance.ebooks,
-          builder: (context, ebooks, _) {
-            if (ebooks.isEmpty) {
-              return const Center(
-                child: Text('No ebooks are available right now.'),
-              );
-            }
-            for (final ebook in ebooks) {
-              _ensurePracticeAvailability(ebook);
-            }
-            return Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: EbookGrid(
-                ebooks: ebooks,
-                isLoading: false,
-                practiceAvailability: _practiceAvailability,
-                onCardTap: _handleCardTap,
-              ),
-            );
-          },
-        );
-      },
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(8.0),
+        child: ShimmerEbookCardLoader(),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: EbookGrid(
+        ebooks: _ebooks,
+        isLoading: _isLoading,
+        practiceAvailability: _practiceAvailability,
+        onCardTap: _handleCardTap,
+      ),
     );
   }
 
@@ -146,4 +154,14 @@ class _EbookLibrarySectionState extends State<EbookLibrarySection> {
     await TokenStore.savePracticeToken(token);
   }
 
+  List<Map<String, dynamic>> _normalizeEbookList(Map<String, dynamic> data) {
+    final raw = data['ebooks'] ?? data['0'] ?? data['data'];
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    return [];
+  }
 }

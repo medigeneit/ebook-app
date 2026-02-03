@@ -132,19 +132,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     : Text('Continue to payment'),
               ),
             ],
-            if (!hasPlans)
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _openFallback,
-                child: const Text('Open subscription on website'),
-              ),
-            const SizedBox(height: 12),
+            // if (!hasPlans)
+            //   ElevatedButton(
+            //     style: ElevatedButton.styleFrom(
+            //       backgroundColor: AppColors.primary,
+            //       padding: const EdgeInsets.symmetric(vertical: 14),
+            //       shape: RoundedRectangleBorder(
+            //         borderRadius: BorderRadius.circular(12),
+            //       ),
+            //     ),
+            //     onPressed: _openFallback,
+            //     child: const Text('Open subscription on website'),
+            //   ),
+            // const SizedBox(height: 12),
           ],
         ),
       ),
@@ -175,22 +175,57 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   }
 
   Widget _buildEmptyState() {
+    // return Center(
+    //   child: Column(
+    //     mainAxisSize: MainAxisSize.min,
+    //     children: [
+    //       Icon(Icons.info_outline, size: 48, color: AppColors.primary),
+    //       const SizedBox(height: 8),
+    //       const Text(
+    //         'Subscription details are not available inside the app yet. We will take you to the web version to continue.',
+    //         textAlign: TextAlign.center,
+    //       ),
+    //       const SizedBox(height: 16),
+    //       ElevatedButton(
+    //         onPressed: _openFallback,
+    //         child: const Text('Continue on web'),
+    //       ),
+    //     ],
+    //   ),
+    // );
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.info_outline, size: 48, color: AppColors.primary),
-          const SizedBox(height: 8),
-          const Text(
-            'Subscription details are not available inside the app yet. We will take you to the web version to continue.',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _openFallback,
-            child: const Text('Continue on web'),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.block_rounded, size: 54, color: Colors.redAccent),
+            const SizedBox(height: 12),
+            const Text(
+              'This ebook is not available',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please try again later.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: 220,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Go back'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

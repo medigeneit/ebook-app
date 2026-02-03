@@ -1,128 +1,289 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/cupertino.dart';
+
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebook_project/api/routes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  ApiService();
+  ApiService({http.Client? client}) : _client = client ?? http.Client();
 
+  final http.Client _client;
+
+  static const Duration _timeout = Duration(seconds: 25);
+
+  // -------------------------
+  // GET JSON (Map)
+  // -------------------------
   Future<Map<String, dynamic>> fetchEbookData(String endpoint) async {
+    final headers = await _authHeaders();
+    final uri = getFullUrl(endpoint);
+
+    Future<http.Response> doGet() =>
+        _client.get(uri, headers: headers).timeout(_timeout);
+
+    http.Response response;
+
     try {
-      final headers = await _authHeaders();
-      final response = await http.get(getFullUrl(endpoint), headers: headers);
-      if (response.statusCode == 200) {
-        return json.decode(response.body) as Map<String, dynamic>;
+      response = await doGet();
+    } on TimeoutException {
+      throw ApiException('Network timeout. আবার চেষ্টা করুন।');
+    } catch (e) {
+      throw ApiException('Network error: $e');
+    }
+
+    String text = utf8.decode(response.bodyBytes);
+
+    if (response.statusCode != 200) {
+      throw ApiException(_httpErrorMessage(response.statusCode, text));
+    }
+
+    if (text.trim().isEmpty) {
+      throw ApiException('Server থেকে empty response এসেছে।');
+    }
+
+    try {
+      final decoded = _decodeJson(text);
+      return _asMap(decoded);
+    } on FormatException {
+      // মাঝে মাঝে ট্রাঙ্কেটেড/ইনকমপ্লিট রেসপন্স হলে retry দিয়ে ঠিক হয়
+      try {
+        final retry = await doGet();
+        final retryText = utf8.decode(retry.bodyBytes);
+
+        if (retry.statusCode != 200) {
+          throw ApiException(_httpErrorMessage(retry.statusCode, retryText));
+        }
+
+        final decoded = _decodeJson(retryText);
+        return _asMap(decoded);
+      } catch (e) {
+        throw ApiException(
+          'Invalid JSON response (truncated/invalid). '
+              'len=${text.length}, tail=${_tail(text)} | $e',
+        );
       }
-      throw ApiException('Failed to load data: ${response.statusCode}');
-    } catch (error) {
-      throw ApiException('Error fetching data: $error');
+    } catch (e) {
+      throw ApiException('Error fetching data: $e');
     }
   }
 
-  Future<Map<String, dynamic>?> postData(String endpoint, Map<String, dynamic> data) async {
+  // -------------------------
+  // POST JSON (Map?)
+  // -------------------------
+  Future<Map<String, dynamic>?> postData(
+      String endpoint,
+      Map<String, dynamic> data,
+      ) async {
+    final headers = await _authHeaders();
+    final uri = getFullUrl(endpoint);
+
+    http.Response response;
+
     try {
-      final headers = await _authHeaders();
-      final response = await http.post(
-        getFullUrl(endpoint),
+      response = await _client
+          .post(
+        uri,
         headers: headers,
-        body: json.encode(data),
-      );
-      if (response.statusCode == 200) {
-        return json.decode(response.body) as Map<String, dynamic>;
-      }
-      return {
-        'error': 1,
-        'message': 'Server Error: ${response.statusCode}'
-      };
-    } catch (error) {
-      return {
-        'error': 1,
-        'message': 'Network Error: $error'
-      };
+        body: jsonEncode(data),
+      )
+          .timeout(_timeout);
+    } on TimeoutException {
+      return {'error': 1, 'message': 'Network timeout. আবার চেষ্টা করুন।'};
+    } catch (e) {
+      return {'error': 1, 'message': 'Network Error: $e'};
     }
-  }
 
-  Future<String> fetchRawTextData(String endpoint) async {
+    final text = utf8.decode(response.bodyBytes);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      try {
+        final decoded = _decodeJson(text);
+        final map = _asMap(decoded);
+        return map;
+      } catch (e) {
+        return {'error': 1, 'message': 'Invalid JSON response: $e'};
+      }
+    }
+
+    // চেষ্টা করি server message বের করতে
     try {
-      final headers = await _authHeaders();
-      final response = await http.get(getFullUrl(endpoint), headers: headers);
-      if (response.statusCode == 200) {
-        return response.body.toString();
+      final decoded = _decodeJson(text);
+      if (decoded is Map && decoded['message'] != null) {
+        return {'error': 1, 'message': decoded['message'].toString()};
       }
-      throw ApiException('Failed to fetch data');
-    } catch (error) {
-      throw ApiException('Error fetching data: $error');
+    } catch (_) {}
+
+    return {'error': 1, 'message': 'Server Error: ${response.statusCode}'};
+  }
+
+  // -------------------------
+  // GET Raw Text
+  // -------------------------
+  Future<String> fetchRawTextData(String endpoint) async {
+    final headers = await _authHeaders();
+    final uri = getFullUrl(endpoint);
+
+    try {
+      final response =
+      await _client.get(uri, headers: headers).timeout(_timeout);
+
+      final text = utf8.decode(response.bodyBytes);
+
+      if (response.statusCode == 200) {
+        return text;
+      }
+      throw ApiException(_httpErrorMessage(response.statusCode, text));
+    } on TimeoutException {
+      throw ApiException('Network timeout. আবার চেষ্টা করুন।');
+    } catch (e) {
+      throw ApiException('Error fetching data: $e');
     }
   }
 
-  Future<void> logout(context) async {
+  // -------------------------
+  // Logout
+  // -------------------------
+  Future<void> logout(BuildContext context) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-      if (token != null) {
-        final response = await http.post(
-          getFullUrl('/logout'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        );
-        if (response.statusCode == 200 || response.statusCode == 204) {
-          await prefs.clear();
-          if (context.mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-          }
-        } else {
-          print("Logout failed: ${response.statusCode}");
+
+      if (token == null) return;
+
+      final response = await _client
+          .post(
+        getFullUrl('/logout'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      )
+          .timeout(_timeout);
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        await prefs.clear();
+        if (context.mounted) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/login', (route) => false);
         }
+        return;
       }
+
+      final text = utf8.decode(response.bodyBytes);
+      throw ApiException(_httpErrorMessage(response.statusCode, text));
+    } on TimeoutException {
+      throw ApiException('Logout timeout. আবার চেষ্টা করুন।');
     } catch (e) {
-      print("Logout error: $e");
       throw ApiException('Logout failed: $e');
     }
   }
 
+  // -------------------------
+  // Subscription Plans
+  // -------------------------
   Future<Map<String, dynamic>> fetchSubscriptionPlans(int productId) async {
     final headers = await _authHeaders();
-    final response = await http.get(getFullUrl('/v1/ebooks/$productId/plans'), headers: headers);
-    final body = json.decode(response.body);
-    if (response.statusCode == 200) {
-      return body as Map<String, dynamic>;
+    final uri = getFullUrl('/v1/ebooks/$productId/plans');
+
+    http.Response response;
+
+    try {
+      response =
+      await _client.get(uri, headers: headers).timeout(_timeout);
+    } on TimeoutException {
+      throw ApiException('Network timeout. আবার চেষ্টা করুন।');
+    } catch (e) {
+      throw ApiException('Network error: $e');
     }
-    throw ApiException(body['message']?.toString() ?? 'Failed to fetch plans');
+
+    final text = utf8.decode(response.bodyBytes);
+
+    dynamic decoded;
+    try {
+      decoded = _decodeJson(text);
+    } catch (e) {
+      throw ApiException('Invalid JSON response: $e');
+    }
+
+    if (response.statusCode == 200) {
+      return _asMap(decoded);
+    }
+
+    if (decoded is Map && decoded['message'] != null) {
+      throw ApiException(decoded['message'].toString());
+    }
+
+    throw ApiException(_httpErrorMessage(response.statusCode, text));
   }
 
+  // -------------------------
+  // Create Subscription
+  // -------------------------
   Future<Map<String, dynamic>> createSubscription({
     required int productId,
     required int monthlyPlan,
     int paymentMethod = 1,
   }) async {
     final headers = await _authHeaders();
-    final response = await http.post(
-      getFullUrl('/v1/ebooks/$productId/subscriptions'),
-      headers: headers,
-      body: json.encode({
-        'monthly_plan': monthlyPlan,
-        'payment_method': paymentMethod,
-      }),
-    );
-    final body = json.decode(response.body);
+    final uri = getFullUrl('/v1/ebooks/$productId/subscriptions');
+
+    http.Response response;
+
+    try {
+      response = await _client
+          .post(
+        uri,
+        headers: headers,
+        body: jsonEncode({
+          'monthly_plan': monthlyPlan,
+          'payment_method': paymentMethod,
+        }),
+      )
+          .timeout(_timeout);
+    } on TimeoutException {
+      throw ApiException('Network timeout. আবার চেষ্টা করুন।');
+    } catch (e) {
+      throw ApiException('Network error: $e');
+    }
+
+    final text = utf8.decode(response.bodyBytes);
+
+    dynamic decoded;
+    try {
+      decoded = _decodeJson(text);
+    } catch (e) {
+      throw ApiException('Invalid JSON response: $e');
+    }
+
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return body as Map<String, dynamic>;
+      return _asMap(decoded);
     }
+
     if (response.statusCode == 422) {
-      throw ApiException(body['message']?.toString() ?? 'Validation failed');
+      if (decoded is Map && decoded['message'] != null) {
+        throw ApiException(decoded['message'].toString());
+      }
+      throw ApiException('Validation failed');
     }
-    throw ApiException(body['message']?.toString() ?? 'Subscription failed');
+
+    if (decoded is Map && decoded['message'] != null) {
+      throw ApiException(decoded['message'].toString());
+    }
+
+    throw ApiException(_httpErrorMessage(response.statusCode, text));
   }
 
+  // -------------------------
+  // Auth headers
+  // -------------------------
   Future<Map<String, String>> _authHeaders() async {
     final token = await _getToken();
     final headers = <String, String>{
       'Content-Type': 'application/json',
     };
-    if (token != null) {
+    if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
     return headers;
@@ -131,6 +292,35 @@ class ApiService {
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
+  }
+
+  // -------------------------
+  // Helpers
+  // -------------------------
+  dynamic _decodeJson(String text) => jsonDecode(text);
+
+  Map<String, dynamic> _asMap(dynamic decoded) {
+    if (decoded is Map<String, dynamic>) return decoded;
+
+    // যদি টপ-লেভেলে List আসে, Map টাইপ বজায় রাখতে wrap করে দিই
+    if (decoded is List) {
+      return {'ok': true, 'data': decoded};
+    }
+
+    // অন্য টাইপ এলে এটাও wrap
+    return {'ok': true, 'data': decoded};
+  }
+
+  String _httpErrorMessage(int code, String body) {
+    final clean = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final snippet = clean.length > 200 ? '${clean.substring(0, 200)}...' : clean;
+    return 'HTTP $code: $snippet';
+  }
+
+  String _tail(String s) {
+    final t = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (t.length <= 180) return t;
+    return t.substring(t.length - 180);
   }
 }
 

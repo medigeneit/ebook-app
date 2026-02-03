@@ -163,116 +163,66 @@ class _EbookGridCard extends StatelessWidget {
     );
   }
 
-  // Widget _buildBuyButton() {
-  //   return SizedBox(
-  //     height: 34,
-  //     child: DecoratedBox(
-  //       decoration: BoxDecoration(
-  //         gradient: AppColors.primaryGradientSoft(),
-  //         borderRadius: BorderRadius.circular(10),
-  //         boxShadow: AppColors.glassShadow,
-  //       ),
-  //       child: Material(
-  //         color: Colors.transparent,
-  //         child: InkWell(
-  //           borderRadius: BorderRadius.circular(10),
-  //           onTap: () => onBuyTap?.call(ebook),
-  //           child: Center(
-  //             child: Text(
-  //               'Buy',
-  //               style: const TextStyle(
-  //                 fontSize: 13,
-  //                 fontWeight: FontWeight.w600,
-  //                 color: AppColors.onGradient,
-  //               ),
-  //             ),
-  //           ),
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-
-  Widget _buildBuyButton(BuildContext context) {
-    final enabled = onBuyTap != null;
-
-    return SizedBox(
-      height: 42,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: enabled ? AppColors.primaryGradientSoft() : null,
-          color: enabled ? null : Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: enabled ? AppColors.glassShadow : const [],
-          border: Border.all(
-            color: Colors.white.withOpacity(0.22),
-            width: 1,
+  Widget _buildBuyButton() {
+    return FractionallySizedBox(
+      widthFactor: 0.78,
+      child: SizedBox(
+        height: 32,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            // ✅ subtle button background (looks clickable)
+            color: const Color(0xFFF4F7FF), // very light bluish tint
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0x22008774)), // tint border
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x12000000),
+                blurRadius: 10,
+                offset: Offset(0, 6),
+              ),
+            ],
           ),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: !enabled
-                ? null
-                : () {
-              HapticFeedback.lightImpact();
-              onBuyTap?.call(ebook);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  // left icon capsule
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.18),
-                        width: 1,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: () => onBuyTap?.call(ebook),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradientSoft(),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                    child: const Icon(
-                      Icons.shopping_bag_rounded,
-                      size: 16,
-                      color: AppColors.onGradient,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // text
-                  const Expanded(
-                    child: Text(
-                      'Buy Now',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.2,
+                      child: const Icon(
+                        Icons.shopping_cart_checkout_rounded,
+                        size: 14,
                         color: AppColors.onGradient,
                       ),
                     ),
-                  ),
-
-                  // arrow bubble
-                  // Container(
-                  //   width: 30,
-                  //   height: 30,
-                  //   decoration: BoxDecoration(
-                  //     color: Colors.white.withOpacity(0.16),
-                  //     borderRadius: BorderRadius.circular(999),
-                  //   ),
-                  //   child: const Icon(
-                  //     Icons.arrow_forward_rounded,
-                  //     size: 18,
-                  //     color: AppColors.onGradient,
-                  //   ),
-                  // ),
-                ],
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Buy',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 16,
+                      color: AppColors.textPrimary,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -280,6 +230,8 @@ class _EbookGridCard extends StatelessWidget {
       ),
     );
   }
+
+
 
 
   @override
@@ -400,7 +352,7 @@ class _EbookGridCard extends StatelessWidget {
                     _TinyMeta(icon: Icons.event_outlined, value: ebook.ending),
                   ],
                   const SizedBox(height: 8),
-                  if (onBuyTap != null) _buildBuyButton(context),
+                  if (onBuyTap != null) _buildBuyButton(),
                 ],
               );
             },

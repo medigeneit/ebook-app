@@ -5,9 +5,11 @@ import '../components/ebook_grid.dart';
 import '../components/shimmer_ebook_card_loader.dart';
 import '../components/under_maintanance_snackbar.dart';
 import '../models/ebook.dart';
+import '../models/all_ebook.dart';
 import '../screens/ebook_detail.dart';
 import '../utils/token_store.dart';
 import '../utils/update_manager.dart';
+import '../screens/subscription_page.dart';
 
 class EbookLibrarySection extends StatefulWidget {
   const EbookLibrarySection({super.key});
@@ -20,6 +22,7 @@ class _EbookLibrarySectionState extends State<EbookLibrarySection> {
   final List<Ebook> _ebooks = [];
   final Map<int, bool> _practiceAvailability = {};
   final Map<int, Future<bool>> _practiceFutures = {};
+  final Map<int, AllEbook> _allEbookById = {};
   bool _isLoading = true;
 
   @override
@@ -77,22 +80,86 @@ class _EbookLibrarySectionState extends State<EbookLibrarySection> {
     return s == 1 || s == '1' || s == true || s == 'Active';
   }
 
+  Future<void> _loadAllEbooksIfNeeded() async {
+        if (_allEbookById.isNotEmpty) return;
+        final apiService = ApiService();
+        try {
+          final allData = await apiService.fetchEbookData('/v1/all-ebooks');
+          final list = _normalizeEbookList(allData);
+          final parsed = list.map((e) => AllEbook.fromJson(e)).toList();
+          _allEbookById
+            ..clear()
+            ..addEntries(
+              parsed
+                  .where((ebook) => ebook.softcopyId != 0)
+                  .map((ebook) => MapEntry(ebook.softcopyId, ebook)),
+            );
+        } catch (_) {
+          // ignore: store data না পেলেও fallback web চলবে
+        }
+      }
+
+    AllEbook? _softcopyFor(Ebook ebook) {
+        final direct = _allEbookById[ebook.id];
+        if (direct != null) return direct;
+
+        final altKey = ebook.subcriptionId;
+        if (altKey > 0) {
+          final alt = _allEbookById[altKey];
+          if (alt != null) return alt;
+         for (final item in _allEbookById.values) {
+            if (item.productId == altKey || item.productId == ebook.id) return item;
+          }
+        }
+        for (final item in _allEbookById.values) {
+          if (item.productId == ebook.id) return item;
+        }
+        return null;
+      }
+
+    Future<void> _openSubscriptionPage(BuildContext context, Ebook ebook) async {
+        await _loadAllEbooksIfNeeded();
+        final softcopy = _softcopyFor(ebook);
+        final choosePlanId = softcopy?.softcopyId ?? ebook.id;
+
+        if (!mounted) return;
+        final success = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SubscriptionPage(
+              ebook: ebook,
+              softcopy: softcopy,
+              fallbackUrl: Uri.parse('https://banglamed.net/choose-plan/$choosePlanId'),
+            ),
+          ),
+        );
+
+        if (success == true) {
+          await _fetchEbooks(); // payment success হলে লাইব্রেরি রিফ্রেশ
+        }
+      }
+
   Future<void> _handleCardTap(BuildContext context, Ebook ebook) async {
-    if (!ebook.isExpired && !_isActive(ebook)) {
-      showUnderMaintenanceSnackbar();
+    // if (!ebook.isExpired && !_isActive(ebook)) {
+    //   showUnderMaintenanceSnackbar();
+    //   return;
+    // }
+
+    if (ebook.isExpired || !_isActive(ebook)) {
+      await _openSubscriptionPage(context, ebook);
       return;
     }
 
     final hasPractice = await _ensurePracticeAvailability(ebook);
-    if (!hasPractice && ebook.isExpired) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Practice questions are not available for this book.'),
-        ),
-      );
-      return;
-    }
+    // if (!hasPractice && ebook.isExpired) {
+    //   if (!mounted) return;
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(
+    //       content: Text('Practice questions are not available for this book.'),
+    //     ),
+    //   );
+    //   return;
+    // }
 
     Navigator.push(
       context,

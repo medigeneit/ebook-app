@@ -3,6 +3,9 @@ import 'package:ebook_project/components/under_maintanance_snackbar.dart';
 import 'package:ebook_project/models/ebook.dart';
 import 'package:ebook_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:ebook_project/models/ebook.dart';
+import 'package:ebook_project/theme/app_colors.dart';
+import 'package:flutter/material.dart';
 
 class EbookGrid extends StatelessWidget {
   final List<Ebook> ebooks;
@@ -109,19 +112,19 @@ class _EbookGridCard extends StatelessWidget {
 
   bool get _isPending => !_isExpired && !_isActive;
 
-  Future<void> _goRenewOrExternal() async {
-    showUnderMaintenanceSnackbar();
-  }
+  // Future<void> _goRenewOrExternal() async {
+  //   showUnderMaintenanceSnackbar();
+  // }
 
   Future<void> _onTap(BuildContext context) async {
-    if (_isExpired) {
-      await onCardTap(context, ebook);
-      return;
-    }
-    if (_isPending) {
-      await _goRenewOrExternal();
-      return;
-    }
+    // if (_isExpired) {
+    //   await onCardTap(context, ebook);
+    //   return;
+    // }
+    // if (_isPending) {
+    //   await _goRenewOrExternal();
+    //   return;
+    // }
     await onCardTap(context, ebook);
   }
 

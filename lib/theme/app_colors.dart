@@ -228,4 +228,13 @@ class AppColors {
     end: Alignment.bottomRight,
     colors: [blue600, blue800],
   );
+
+  static LinearGradient primaryGradientSoft() => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          blue600.withOpacity(0.85),
+          blue800.withOpacity(0.75),
+        ],
+      );
 }

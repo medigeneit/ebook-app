@@ -11,6 +11,7 @@ class CustomDrawer extends StatefulWidget {
   final VoidCallback onLoginTap;
   final VoidCallback onSettingsTap;
   final VoidCallback onProfileTap;
+  final VoidCallback? onDeviceVerificationTap;
 
   const CustomDrawer({
     Key? key,
@@ -19,6 +20,7 @@ class CustomDrawer extends StatefulWidget {
     required this.onLoginTap,
     required this.onSettingsTap,
     required this.onProfileTap,
+    this.onDeviceVerificationTap,
   }) : super(key: key);
 
   @override
@@ -80,30 +82,37 @@ class _CustomDrawerState extends State<CustomDrawer> {
             ),
           ),
           // if(currentRoute != '/')
-            buildDrawerItem(
+          buildDrawerItem(
               icon: FontAwesomeIcons.homeAlt,
               label: 'Home',
               onTap: currentRoute != '/' ? widget.onHomeTap : () {},
-              route : '/'
-            ),
+              route: '/'),
           // if(currentRoute != '/profile')
-            buildDrawerItem(
+          buildDrawerItem(
               icon: FontAwesomeIcons.user,
               label: 'User',
               onTap: currentRoute != '/profile' ? widget.onProfileTap : () {},
-              route : '/profile'
-            ),
+              route: '/profile'),
           buildDrawerItem(
             icon: FontAwesomeIcons.cog,
             label: 'Settings',
             onTap: widget.onSettingsTap,
           ),
+          if (widget.onDeviceVerificationTap != null)
+            buildDrawerItem(
+              icon: FontAwesomeIcons.shieldAlt,
+              label: 'Device Verification',
+              onTap: () {
+                Navigator.of(context).pop();
+                widget.onDeviceVerificationTap!();
+              },
+              route: '/device-verification',
+            ),
           if (!isLoggedIn)
             buildDrawerItem(
               icon: FontAwesomeIcons.signInAlt,
               label: 'Login',
               onTap: widget.onLoginTap,
-
             ),
           if (isLoggedIn)
             buildDrawerItem(
@@ -116,27 +125,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
     );
   }
 
-  Widget buildDrawerItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    String? route
-  }) {
+  Widget buildDrawerItem(
+      {required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+      String? route}) {
     String? currentRoute = ModalRoute.of(context)?.settings.name;
     bool isSelected = (route != null && route == currentRoute);
     return ListTile(
       leading: Icon(
-          icon,
-          size: 20,
-          // color: Colors.blue[700]
-          color: isSelected ? Colors.white : Colors.blue[700],
+        icon,
+        size: 20,
+        // color: Colors.blue[700]
+        color: isSelected ? Colors.white : Colors.blue[700],
       ),
       title: Text(
         label,
-        style:  TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : Colors.black,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: isSelected ? Colors.white : Colors.black,
         ),
       ),
       horizontalTitleGap: 8,

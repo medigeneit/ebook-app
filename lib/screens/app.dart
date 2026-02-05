@@ -206,7 +206,14 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
               padding: EdgeInsets.all(8.0),
               child: ShimmerEbookCardLoader(),
             )
-          : _buildLoadedBody(),
+          // : _buildLoadedBody(),
+          : RefreshIndicator(
+              onRefresh: () async {
+                await fetchEbooks(); // ✅ pull করলে আবার API call
+              },
+              child:
+                  _buildLoadedBody(), // ✅ এখানে scrollable থাকতে হবে (নিচে দিয়েছি)
+            ),
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:ebook_project/api/api_service.dart';
 import 'package:ebook_project/components/app_layout.dart';
 import 'package:ebook_project/components/ebook_library_section.dart';
 import 'package:flutter/material.dart';
@@ -11,11 +12,20 @@ class MyEbooksPage extends StatelessWidget {
       title: 'My Ebooks',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: const [
+        children: [
           // SizedBox(height: 8),
           // _SectionHeader(),
           // SizedBox(height: 4),
-          Expanded(child: EbookLibrarySection()),
+          // Expanded(child: EbookLibrarySection()),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                // EbookLibrarySection ভিতরে থাকা fetch method ট্রিগার করবে
+                await ApiService().fetchEbookData('/v1/ebooks'); // নিচে দেখুন
+              },
+              child: const EbookLibrarySection(),
+            ),
+          ),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:ebook_project/utils/device_uuid_store.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebook_project/api/routes.dart';
@@ -24,7 +25,6 @@ class ApiService {
         _client.get(uri, headers: headers).timeout(_timeout);
 
     http.Response response;
-
     try {
       response = await doGet();
     } on TimeoutException {
@@ -280,12 +280,18 @@ class ApiService {
   // -------------------------
   Future<Map<String, String>> _authHeaders() async {
     final token = await _getToken();
+    final deviceUuid = await DeviceUuidStore.getOrCreate();
     final headers = <String, String>{
       'Content-Type': 'application/json',
     };
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
+    // Laravel side: request()->cookie('_gns-ddt') ব্যবহার করছে
+    headers['Cookie'] = '_gns-ddt=$deviceUuid';
+    // future-proof: header fallback
+    headers['X-Device-Uuid'] = deviceUuid;
+    print('headers: $headers');
     return headers;
   }
 

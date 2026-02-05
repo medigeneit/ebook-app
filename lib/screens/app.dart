@@ -45,7 +45,7 @@ class MyApp extends StatelessWidget {
       // },
       routes: {
         '/splash': (context) => const SplashPage(),
-        '/': (context) => const MyHomePage(title: 'My Ebooks'),
+        '/': (context) => const MyHomePage(title: 'All Ebooks'),
         '/my-ebooks': (context) => const MyEbooksPage(),
         '/login': (context) => const LoginPage(),
         '/device-verification': (context) => const DeviceVerificationPage(),

@@ -3,6 +3,8 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:ebook_project/models/ebook_content.dart';
 import 'package:ebook_project/components/contents/image_with_placeholder.dart';
 
+import '../../presentation/screens/question_page_with_zoom.dart';
+
 class ContentCard extends StatelessWidget {
   final EbookContent content;
   final bool showCorrect;
@@ -294,10 +296,22 @@ class _ImageFromHtml extends StatelessWidget {
 
     return Column(
       children: [
+        // ClipRRect(
+        //   borderRadius: BorderRadius.circular(12),
+        //   child: ImageWithPlaceholder(imageUrl: imageUrl),
+        // ),
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: ImageWithPlaceholder(imageUrl: imageUrl),
+          child: SizedBox(
+            height: 220, // ✅ এখানে বাড়ান
+            width: double.infinity,
+            child: ZoomableQuestionImage(
+              imageUrl: imageUrl,
+              heroTag: 'qimg_$imageUrl',
+            ),
+          ),
         ),
+
         const SizedBox(height: 8),
       ],
     );

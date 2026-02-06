@@ -295,6 +295,7 @@ class ApiService {
       headers['Authorization'] = 'Bearer $token';
     }
     // Laravel side: request()->cookie('_gns-ddt') ব্যবহার করছে
+    headers['Accept'] = 'application/json';
     headers['Cookie'] = '_gns-ddt=$deviceUuid';
     // future-proof: header fallback
     headers['X-Device-Uuid'] = deviceUuid;

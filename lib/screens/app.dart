@@ -1,4 +1,5 @@
 import 'package:ebook_project/components/ebook_grid.dart';
+import 'package:ebook_project/screens/device_verification/device_info_screen.dart';
 import 'package:ebook_project/screens/profile.dart';
 import 'package:ebook_project/screens/splash.dart';
 import 'package:ebook_project/theme/app_colors.dart';
@@ -13,6 +14,10 @@ import '../components/shimmer_ebook_card_loader.dart';
 import '../models/all_ebook.dart';
 import '../models/ebook.dart';
 import '../utils/token_store.dart';
+import 'device_verification/add.dart';
+import 'device_verification/change.dart';
+import 'device_verification/index.dart';
+import 'device_verification/replace.dart';
 import 'ebook_detail.dart';
 import 'device_verification.dart';
 import 'login.dart';
@@ -48,8 +53,13 @@ class MyApp extends StatelessWidget {
         '/': (context) => const MyHomePage(title: 'All Ebooks'),
         '/my-ebooks': (context) => const MyEbooksPage(),
         '/login': (context) => const LoginPage(),
-        '/device-verification': (context) => const DeviceVerificationPage(),
+        // '/device-verification': (context) => const DeviceVerificationPage(),
         '/profile': (context) => const ProfilePage(),
+        '/device-verification': (_) => const DeviceVerificationIndexScreen(),
+        '/device-add': (_) => const DeviceAddScreen(),
+        '/device-change': (_) => const DeviceChangeScreen(),
+        '/device-replace-request': (_) => const DeviceReplaceRequestScreen(),
+        '/device-info': (_) => const DeviceInfoScreen(),
       },
       navigatorObservers: [routeObserver],
     );

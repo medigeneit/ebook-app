@@ -27,6 +27,9 @@ class ApiService {
     http.Response response;
     try {
       response = await doGet();
+      debugPrint('[API] GET => $uri');
+      debugPrint('[API] status => ${response.statusCode}');
+      debugPrint('[API] body(head) => ${response.body}');
     } on TimeoutException {
       throw ApiException('Network timeout. আবার চেষ্টা করুন।');
     } catch (e) {
@@ -89,6 +92,10 @@ class ApiService {
         body: jsonEncode(data),
       )
           .timeout(_timeout);
+      debugPrint('[API] GET => $uri');
+      debugPrint('[API] headers => $headers');
+      debugPrint('[API] headers body => ${jsonEncode(data)}');
+      debugPrint('[API] body(head) => ${response.body}');
     } on TimeoutException {
       return {'error': 1, 'message': 'Network timeout. আবার চেষ্টা করুন।'};
     } catch (e) {
@@ -291,6 +298,7 @@ class ApiService {
     headers['Cookie'] = '_gns-ddt=$deviceUuid';
     // future-proof: header fallback
     headers['X-Device-Uuid'] = deviceUuid;
+    headers['X-GNS-DDT'] = deviceUuid;
     print('headers: $headers');
     return headers;
   }
@@ -319,7 +327,7 @@ class ApiService {
 
   String _httpErrorMessage(int code, String body) {
     final clean = body.replaceAll(RegExp(r'\s+'), ' ').trim();
-    final snippet = clean.length > 200 ? '${clean.substring(0, 200)}...' : clean;
+    final snippet = clean.length > 200 ? '$clean...' : clean;
     return 'HTTP $code: $snippet';
   }
 

@@ -1,9 +1,10 @@
 import 'package:ebook_project/api/api_service.dart';
+import 'package:ebook_project/api/routes.dart';
+import 'package:ebook_project/services/device_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'package:ebook_project/api/routes.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CustomDrawer extends StatefulWidget {
   final String title;
@@ -102,10 +103,26 @@ class _CustomDrawerState extends State<CustomDrawer> {
             buildDrawerItem(
               icon: FontAwesomeIcons.shieldAlt,
               label: 'Device Verification',
-              onTap: () {
-                Navigator.of(context).pop();
-                widget.onDeviceVerificationTap!();
-              },
+              onTap: () async {
+                final verified = await DeviceGuard.I.isVerified();
+                if (verified) {
+                  // widget.onDeviceVerificationTap!();
+                  Navigator.pushNamed(context, '/device-info');
+                } else {
+                  Navigator.of(context).pop();
+                  // widget.onDeviceVerificationTap!();
+                  Navigator.pushNamed(
+                    context,
+                    '/device-verification',
+                    arguments: {'redirectTo': '/device-info'},
+                  );
+                }
+              }
+//               () {
+//                 Navigator.of(context).pop();
+//                 widget.onDeviceVerificationTap!();
+//               }
+              ,
               route: '/device-verification',
             ),
           if (!isLoggedIn)

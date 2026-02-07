@@ -3,6 +3,7 @@ import 'package:ebook_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ebook_project/components/under_maintanance_snackbar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'custom_drawer.dart';
 
 /// ------------------------------
@@ -184,23 +185,36 @@ class AppLayout extends StatelessWidget {
         onSelect: (index) {
           if (index == selected) return;
           HapticFeedback.selectionClick();
-
-          switch (index) {
-            case 0:
-              Navigator.pushReplacementNamed(context, '/');
-              break;
-            case 1:
-              Navigator.pushReplacementNamed(context, '/my-ebooks');
-              break;
-            case 2:
-              Navigator.pushReplacementNamed(context, '/profile');
-              break;
-          }
+          _handleNavTap(context, index);
         },
       )
           : null,
 
     );
+  }
+
+  Future<void> _handleNavTap(BuildContext context, int index) async {
+    if (index == 1) {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null || token.isEmpty) {
+        Navigator.pushNamedAndRemoveUntil(
+            context, '/login', (route) => false);
+        return;
+      }
+    }
+
+    switch (index) {
+      case 0:
+        Navigator.pushReplacementNamed(context, '/');
+        break;
+      case 1:
+        Navigator.pushReplacementNamed(context, '/my-ebooks');
+        break;
+      case 2:
+        Navigator.pushReplacementNamed(context, '/profile');
+        break;
+    }
   }
 }
 class _AnimatedNavBar extends StatelessWidget {

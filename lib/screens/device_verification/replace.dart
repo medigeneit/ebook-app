@@ -52,6 +52,30 @@ class _DeviceReplaceRequestScreenState extends State<DeviceReplaceRequestScreen>
 
   String _s(dynamic v) => (v ?? '').toString().trim();
 
+  Future<void> _onRefresh() async {
+    await _load();               // আপনার আগের লোড
+    await _redirectIfVerified(); // তারপর verified চেক
+  }
+
+  Future<void> _redirectIfVerified() async {
+    try {
+      final res = await _api.fetchEbookData('/v1/check-active-doctor-device');
+      final isActive = res['is_active'] == true;
+
+      if (isActive && mounted) {
+        // ✅ verified হয়ে গেলে সরাসরি My Ebooks এ
+        Navigator.pushNamedAndRemoveUntil(context, '/my-ebooks', (_) => false);
+
+        // যদি আপনার my-ebooks "tab index" দিয়ে ওপেন করতে হয়,
+        // তাহলে এখানে আপনার root route এ index পাঠান:
+        // Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false, arguments: {'tab': 1});
+      }
+    } catch (_) {
+      // silently ignore (network fail হলে refresh শুধু data reload করবে)
+    }
+  }
+
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -132,6 +156,7 @@ class _DeviceReplaceRequestScreenState extends State<DeviceReplaceRequestScreen>
 
         // reload করে request details দেখাবে
         await _load();
+        await _redirectIfVerified();
 
         if (mounted) {
           setState(() => _editing = false);
@@ -197,7 +222,7 @@ class _DeviceReplaceRequestScreenState extends State<DeviceReplaceRequestScreen>
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: _onRefresh,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [

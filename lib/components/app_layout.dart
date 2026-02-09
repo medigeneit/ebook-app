@@ -1,4 +1,5 @@
 // lib/components/app_layout.dart
+import 'package:ebook_project/api/api_service.dart';
 import 'package:ebook_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -200,6 +201,18 @@ class AppLayout extends StatelessWidget {
       if (token == null || token.isEmpty) {
         Navigator.pushNamedAndRemoveUntil(
             context, '/login', (route) => false);
+        return;
+      }
+      try {
+        final res =
+            await ApiService().fetchEbookData('/v1/check-active-doctor-device');
+        final isActive = res['is_active'] == true;
+        if (!isActive) {
+          Navigator.pushReplacementNamed(context, '/device-verification');
+          return;
+        }
+      } catch (_) {
+        Navigator.pushReplacementNamed(context, '/device-verification');
         return;
       }
     }

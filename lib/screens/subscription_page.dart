@@ -328,7 +328,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       return [];
     }
 
-    final packages = _normalizePackages(widget.softcopy?.packages ?? []);
+    // final packages = _normalizePackages(widget.softcopy?.packages ?? []);
+    final packages = _normalizePackages(widget.softcopy?.packages ?? [])
+        .where((p) => p.month > 0)
+        .toList();
     if (packages.isNotEmpty) {
       final sorted = [...packages]..sort((a, b) => a.month.compareTo(b.month));
       return sorted
@@ -399,6 +402,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   List<SubscriptionPackage> _normalizePackages(dynamic packages) {
     if (packages == null) return [];
+
     if (packages is String) {
       try {
         final data = json.decode(packages);
@@ -407,21 +411,33 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         return [];
       }
     }
-    if (packages is Map) {
-      return [_fromMap(packages)];
-    }
+
     if (packages is List) {
       return packages
           .where((item) => item != null)
-          .map((item) {
-            if (item is Map) return _fromMap(item);
-            return _fromMap({});
-          })
+          .map((item) => item is Map ? _fromMap(item) : _fromMap({}))
           .where((pkg) => pkg.month > 0)
           .toList();
     }
+
+    if (packages is Map) {
+      // ✅ Case-1: direct {month:..., discount:...}
+      if (packages.containsKey('month')) {
+        final p = _fromMap(packages);
+        return p.month > 0 ? [p] : [];
+      }
+
+      // ✅ Case-2: { "2": {month:..., discount:...}, ... }
+      return packages.values
+          .where((v) => v != null)
+          .map((v) => v is Map ? _fromMap(v) : _fromMap({}))
+          .where((pkg) => pkg.month > 0)
+          .toList();
+    }
+
     return [];
   }
+
 
   SubscriptionPackage _fromMap(Map<dynamic, dynamic> map) {
     final month = _parseInt(map['month']) ?? 0;

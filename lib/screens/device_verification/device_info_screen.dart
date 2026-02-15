@@ -87,6 +87,23 @@ class _DeviceInfoScreenState extends State<DeviceInfoScreen> {
     );
   }
 
+  IconData _deviceIcon(dynamic deviceType, {dynamic isSmartPhone}) {
+    final dt = (deviceType ?? '').toString().trim().toLowerCase();
+    final smart = isSmartPhone == true;
+
+    // ফোন/হ্যান্ডসেট
+    if (smart) return Icons.smartphone;
+
+    if (dt.contains('android')) return Icons.phone_android; // ✅ handset (android)
+    if (dt.contains('ios') || dt.contains('iphone') || dt.contains('ipad')) {
+      return Icons.phone_iphone; // optional
+    }
+
+    // ডিফল্ট: PC
+    return Icons.computer;
+  }
+
+
   Widget _deviceTile(Map<String, dynamic> d, {bool showActiveDot = false}) {
     final name = _s(d['name']).isEmpty ? 'Unknown Device' : _s(d['name']);
     final lastUsed = _s(d['last_used_at']);
@@ -102,7 +119,7 @@ class _DeviceInfoScreenState extends State<DeviceInfoScreen> {
       child: ListTile(
         leading: Stack(
           children: [
-            const Icon(Icons.devices_rounded, size: 28),
+            Icon(_deviceIcon(d['device_type']), size: 28),
             if (showActiveDot)
               Positioned(
                 right: 0,

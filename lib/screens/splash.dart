@@ -33,17 +33,6 @@ class _SplashPageState extends State<SplashPage>
     _bootstrap();
   }
 
-  // Future<void> _bootstrap() async {
-  //   // স্প্ল্যাশ দৃশ্যমান রাখতে সামান্য ডিলে
-  //   await Future.delayed(const Duration(milliseconds: 1100));
-  //
-  //   final prefs = await SharedPreferences.getInstance();
-  //   final token = prefs.getString('token');
-  //
-  //   if (!mounted) return;
-  //   Navigator.of(context).pushNamedAndRemoveUntil(
-  //       (token == null || token.isEmpty) ? '/login' : '/', (route) => false);
-  // }
 
   Future<void> _bootstrap() async {
     await Future.delayed(const Duration(milliseconds: 1100));
@@ -59,12 +48,6 @@ class _SplashPageState extends State<SplashPage>
     }
 
     String nextRoute = '/';
-    try {
-      final res = await ApiService().fetchEbookData('/v1/check-active-doctor-device');
-      if (res['is_active'] != true) nextRoute = '/device-verification';
-    } catch (_) {
-      nextRoute = '/';
-    }
 
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(nextRoute, (route) => false);

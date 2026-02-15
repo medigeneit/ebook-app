@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:ebook_project/api/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,16 +33,24 @@ class _SplashPageState extends State<SplashPage>
     _bootstrap();
   }
 
+
   Future<void> _bootstrap() async {
-    // স্প্ল্যাশ দৃশ্যমান রাখতে সামান্য ডিলে
     await Future.delayed(const Duration(milliseconds: 1100));
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-        (token == null || token.isEmpty) ? '/login' : '/', (route) => false);
+
+    if (token == null || token.isEmpty) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+      return;
+    }
+
+    String nextRoute = '/';
+
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(nextRoute, (route) => false);
   }
 
   @override

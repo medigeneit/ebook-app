@@ -3,21 +3,22 @@ import 'package:ebook_project/api/api_service.dart';
 import 'package:ebook_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:ebook_project/components/under_maintanance_snackbar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'custom_drawer.dart';
+import 'package:ebook_project/state/nav_state.dart';
 
 /// ------------------------------
 /// App primary gradient (blue 600 → 800)
 /// ------------------------------
 LinearGradient appPrimaryGradient() => LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        AppColors.blueShade600,
-        AppColors.blueShade800,
-      ],
-    );
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [
+    AppColors.blueShade600,
+    AppColors.blueShade800,
+  ],
+);
 
 /// ------------------------------
 /// GradientIcon: active হলে গ্রেডিয়েন্ট রঙ, না হলে স্লেট টোন
@@ -28,19 +29,17 @@ class GradientIcon extends StatelessWidget {
   final double size;
 
   const GradientIcon(
-    this.icon, {
-    super.key,
-    required this.active,
-    this.size = 24,
-  });
+      this.icon, {
+        super.key,
+        required this.active,
+        this.size = 24,
+      });
 
   @override
   Widget build(BuildContext context) {
     if (!active) {
-      // Inactive → neutral/slate tone
       return Icon(icon, size: size, color: AppColors.slate500); // slate-500
     }
-    // Active → gradient fill
     return ShaderMask(
       shaderCallback: (rect) => appPrimaryGradient().createShader(rect),
       blendMode: BlendMode.srcIn,
@@ -63,149 +62,99 @@ class AppLayout extends StatelessWidget {
     this.showNavBar = true,
   });
 
-  int _currentIndex(BuildContext context) {
-    final name = ModalRoute.of(context)?.settings.name ?? '/';
-    switch (name) {
-      case '/':
-        return 0;
-      case '/my-ebooks':
-        return 1;
-      case '/profile':
-        return 2;
-      default:
-        return 0;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final selected = _currentIndex(context);
-    return Scaffold(
-      // ===== AppBar: simple + consistent gradient =====
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        centerTitle: true,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: Text(
-          title,
-          maxLines: 2,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
+    return ValueListenableBuilder<int>(
+      valueListenable: NavState.index,
+      builder: (context, selected, _) {
+        return Scaffold(
+          // ===== AppBar: simple + consistent gradient =====
+          appBar: AppBar(
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            centerTitle: true,
+            systemOverlayStyle: SystemUiOverlayStyle.light,
+            title: Text(
+              title,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            iconTheme: const IconThemeData(color: Colors.white),
+            flexibleSpace: Container(
+              decoration: BoxDecoration(gradient: appPrimaryGradient()),
+            ),
           ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(gradient: appPrimaryGradient()),
-        ),
-      ),
 
-      // ===== Drawer =====
-      endDrawer: showDrawer
-          ? CustomDrawer(
-              title: 'My Ebooks',
-              onLoginTap: () => Navigator.pushNamed(context, '/login'),
-              onHomeTap: () => Navigator.pushNamedAndRemoveUntil(
-                  context, '/', (route) => false),
-              onSettingsTap: () => Navigator.pushNamed(context, '/settings'),
-              onProfileTap: () => Navigator.pushNamed(context, '/profile'),
-              onDeviceVerificationTap: () =>
-                  Navigator.pushNamed(context, '/device-verification'),
-            )
-          : null,
+          // ===== Drawer =====
+          endDrawer: showDrawer
+              ? CustomDrawer(
+            title: 'My Ebooks',
+            onLoginTap: () {
+              // Login পেজে গেলে Home/others না, আপনার ইচ্ছা মতো রাখতে পারেন
+              Navigator.pushNamed(context, '/login');
+            },
+            onHomeTap: () {
+              NavState.index.value = 0; // ✅ Home selected
+              Navigator.pushNamedAndRemoveUntil(
+                  context, '/', (route) => false);
+            },
+            onSettingsTap: () => Navigator.pushNamed(context, '/settings'),
+            onProfileTap: () {
+              NavState.index.value = 2; // ✅ Profile selected
+              Navigator.pushNamed(context, '/profile');
+            },
+            onDeviceVerificationTap: () =>
+                Navigator.pushNamed(context, '/device-verification'),
+          )
+              : null,
 
-      // ===== Body =====
-      body: SafeArea(
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: body,
-        ),
-      ),
+          // ===== Body =====
+          body: SafeArea(
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: body,
+            ),
+          ),
 
-      // ===== Bottom Navigation (Material convention) =====
-      // কোনো অতিরিক্ত ব্যাকগ্রাউন্ড/কন্টেইনার নেই
-      // bottomNavigationBar: showNavBar
-      //     ? NavigationBar(
-      //         backgroundColor: Colors.transparent, // surface-এ মিশে যায়
-      //         height: 64,
-      //         elevation: 0,
-      //         indicatorColor:
-      //             AppColors.blueShade600.withOpacity(0.12), // subtle
-      //         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      //         selectedIndex: selected,
-      //         onDestinationSelected: (index) {
-      //           if (index == selected) return;
-      //           HapticFeedback.selectionClick();
-      //
-      //           switch (index) {
-      //             case 0:
-      //               Navigator.pushReplacementNamed(context, '/');
-      //               break;
-      //             case 1:
-      //               Navigator.pushReplacementNamed(context, '/my-ebooks');
-      //               break;
-      //             case 2:
-      //               Navigator.pushReplacementNamed(context, '/profile');
-      //               break;
-      //           }
-      //         },
-      //         destinations: [
-      //           NavigationDestination(
-      //             icon:
-      //                 GradientIcon(Icons.home_rounded, active: false, size: 24),
-      //             selectedIcon:
-      //                 GradientIcon(Icons.home_rounded, active: true, size: 24),
-      //             label: 'Home',
-      //           ),
-      //           NavigationDestination(
-      //             icon: GradientIcon(Icons.auto_stories_rounded,
-      //                 active: false, size: 24),
-      //             selectedIcon: GradientIcon(Icons.auto_stories_rounded,
-      //                 active: true, size: 24),
-      //             label: 'My Ebooks',
-      //           ),
-      //           NavigationDestination(
-      //             icon: GradientIcon(Icons.account_circle_rounded,
-      //                 active: false, size: 24),
-      //             selectedIcon: GradientIcon(Icons.account_circle_rounded,
-      //                 active: true, size: 24),
-      //             label: 'Profile',
-      //           ),
-      //         ],
-      //       )
-      //     : null,
-
-      bottomNavigationBar: showNavBar
-          ? _AnimatedNavBar(
-        selectedIndex: selected,
-        onSelect: (index) {
-          if (index == selected) return;
-          HapticFeedback.selectionClick();
-          _handleNavTap(context, index);
-        },
-      )
-          : null,
-
+          bottomNavigationBar: showNavBar
+              ? _AnimatedNavBar(
+            selectedIndex: selected,
+            onSelect: (index) {
+              if (index == selected) return;
+              HapticFeedback.selectionClick();
+              _handleNavTap(context, index);
+            },
+          )
+              : null,
+        );
+      },
     );
   }
 
   Future<void> _handleNavTap(BuildContext context, int index) async {
+    // ✅ এখানে ট্যাব স্টেট সেট করি
+    NavState.index.value = index;
+
+    // ✅ My Ebooks এ যাওয়ার আগে আপনার ডিভাইস চেক লজিক
     if (index == 1) {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       if (token == null || token.isEmpty) {
-        Navigator.pushNamedAndRemoveUntil(
-            context, '/login', (route) => false);
+        // লগইন পেজে গেলে ট্যাব স্টেট আপনি চাইলে 0 করে দিতে পারেন
+        // NavState.index.value = 0;
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
         return;
       }
       try {
-        final res =
-            await ApiService().fetchEbookData('/v1/check-active-doctor-device');
+        final res = await ApiService()
+            .fetchEbookData('/v1/check-active-doctor-device');
         final isActive = res['is_active'] == true;
         if (!isActive) {
           Navigator.pushReplacementNamed(context, '/device-verification');
@@ -230,6 +179,7 @@ class AppLayout extends StatelessWidget {
     }
   }
 }
+
 class _AnimatedNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
@@ -263,7 +213,6 @@ class _AnimatedNavBar extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              // ✅ Animated indicator (slide + fade)
               AnimatedAlign(
                 duration: const Duration(milliseconds: 240),
                 curve: Curves.easeOutCubic,
@@ -272,7 +221,8 @@ class _AnimatedNavBar extends StatelessWidget {
                   duration: const Duration(milliseconds: 180),
                   opacity: 1,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                     child: Container(
                       width: _itemWidth(context),
                       height: 50,
@@ -285,7 +235,6 @@ class _AnimatedNavBar extends StatelessWidget {
                 ),
               ),
 
-              // ✅ Items row
               Row(
                 children: [
                   Expanded(
@@ -328,9 +277,8 @@ class _AnimatedNavBar extends StatelessWidget {
   }
 
   double _itemWidth(BuildContext context) {
-    // container width -> 3 items
     final w = MediaQuery.of(context).size.width - (12 + 12);
-    return (w / 3) - 12; // padding compensate
+    return (w / 3) - 12;
   }
 }
 
@@ -391,4 +339,3 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
-

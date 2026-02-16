@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'custom_drawer.dart';
 import 'package:ebook_project/state/nav_state.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 /// ------------------------------
 /// App primary gradient (blue 600 → 800)
 /// ------------------------------
@@ -139,22 +141,25 @@ class AppLayout extends StatelessWidget {
   }
 
   Future<void> _handleNavTap(BuildContext context, int index) async {
+    // ✅ Website ট্যাব হলে: ব্রাউজার ওপেন, Nav state আগেরটাই থাকবে
+    if (index == 3) {
+      HapticFeedback.selectionClick();
+      await _openWebsite();
+      return;
+    }
+
     // ✅ এখানে ট্যাব স্টেট সেট করি
     NavState.index.value = index;
 
-    // ✅ My Ebooks এ যাওয়ার আগে আপনার ডিভাইস চেক লজিক
     if (index == 1) {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       if (token == null || token.isEmpty) {
-        // লগইন পেজে গেলে ট্যাব স্টেট আপনি চাইলে 0 করে দিতে পারেন
-        // NavState.index.value = 0;
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
         return;
       }
       try {
-        final res = await ApiService()
-            .fetchEbookData('/v1/check-active-doctor-device');
+        final res = await ApiService().fetchEbookData('/v1/check-active-doctor-device');
         final isActive = res['is_active'] == true;
         if (!isActive) {
           Navigator.pushReplacementNamed(context, '/device-verification');
@@ -178,7 +183,20 @@ class AppLayout extends StatelessWidget {
         break;
     }
   }
+
 }
+
+Future<void> _openWebsite() async {
+  final uri = Uri.parse('https://banglamed.net');
+  final ok = await launchUrl(
+    uri,
+    mode: LaunchMode.externalApplication, // ✅ বাহিরের ব্রাউজারে ওপেন
+  );
+  if (!ok) {
+    // চাইলে snackbar দেখাতে পারেন
+  }
+}
+
 
 class _AnimatedNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -261,6 +279,14 @@ class _AnimatedNavBar extends StatelessWidget {
                       onTap: () => onSelect(2),
                     ),
                   ),
+                  Expanded(
+                    child: _NavItem(
+                      active: false, // ✅ website এ active দেখাতে না চাইলে false রাখুন
+                      label: 'Website',
+                      icon: Icons.public_rounded,
+                      onTap: () => onSelect(3),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -271,14 +297,16 @@ class _AnimatedNavBar extends StatelessWidget {
   }
 
   Alignment _alignForIndex(int i) {
-    if (i == 0) return Alignment.centerLeft;
-    if (i == 1) return Alignment.center;
-    return Alignment.centerRight;
+    // 4 items => -1, -0.33, 0.33, 1
+    if (i == 0) return const Alignment(-1.0, 0);
+    if (i == 1) return const Alignment(-0.33, 0);
+    if (i == 2) return const Alignment(0.33, 0);
+    return const Alignment(1.0, 0);
   }
 
   double _itemWidth(BuildContext context) {
     final w = MediaQuery.of(context).size.width - (12 + 12);
-    return (w / 3) - 12;
+    return (w / 4) - 12;
   }
 }
 

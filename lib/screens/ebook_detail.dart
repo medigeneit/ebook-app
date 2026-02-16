@@ -10,22 +10,23 @@ import 'package:ebook_project/utils/token_store.dart';
 
 class EbookDetailPage extends StatefulWidget {
   final String ebookId;
-  final Map<String, dynamic> ebook; // Pass the ebook data as a parameter
+  final Map<String, dynamic> ebook;
 
-  const EbookDetailPage(
-      {super.key, required this.ebookId, required this.ebook});
+  const EbookDetailPage({super.key, required this.ebookId, required this.ebook});
 
   @override
   _EbookDetailPageState createState() => _EbookDetailPageState();
 }
 
 class _EbookDetailPageState extends State<EbookDetailPage> {
+  static const double _ctaHeight = 52;
+
   Map<String, dynamic> ebookDetail = {};
   bool isLoading = true;
   bool isError = false;
   bool? practiceAvailable;
   bool isPracticeStatusLoading = true;
-  String selectedTab = 'features'; // Tab selection
+  String selectedTab = 'features';
 
   @override
   void initState() {
@@ -40,7 +41,9 @@ class _EbookDetailPageState extends State<EbookDetailPage> {
     final fallbackLink = widget.ebook['image']?.toString();
     final token = TokenStore.extractTokenFromUrl(rawLink) ??
         TokenStore.extractTokenFromUrl(fallbackLink);
+
     if (token == null || token.isEmpty) return;
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('token', token);
     await TokenStore.savePracticeToken(token);
@@ -49,8 +52,7 @@ class _EbookDetailPageState extends State<EbookDetailPage> {
   Future<void> fetchEbookDetails() async {
     ApiService apiService = ApiService();
     try {
-      final data =
-          await apiService.fetchEbookData("/v1/ebooks/${widget.ebookId}");
+      final data = await apiService.fetchEbookData("/v1/ebooks/${widget.ebookId}");
       setState(() {
         ebookDetail = data['eBook'];
         isLoading = false;
@@ -58,6 +60,7 @@ class _EbookDetailPageState extends State<EbookDetailPage> {
     } catch (error) {
       setState(() {
         isLoading = false;
+        isError = true;
       });
       print("Error fetching ebook details: $error");
     }
@@ -66,10 +69,12 @@ class _EbookDetailPageState extends State<EbookDetailPage> {
   Future<void> _checkPracticeAvailability() async {
     final apiService = ApiService();
     try {
-      final endpoint =
-          await TokenStore.attachPracticeToken("/v1/ebooks/${widget.ebookId}/practice-access");
+      final endpoint = await TokenStore.attachPracticeToken(
+        "/v1/ebooks/${widget.ebookId}/practice-access",
+      );
       final data = await apiService.fetchEbookData(endpoint);
       final available = data['practice_questions_available'] == true;
+
       if (!mounted) return;
       setState(() {
         practiceAvailable = available;
@@ -88,281 +93,254 @@ class _EbookDetailPageState extends State<EbookDetailPage> {
   @override
   Widget build(BuildContext context) {
     final bool isExpired = widget.ebook['isExpired'] == true;
-    final dynamic ebookStatus = widget.ebook['status'];
-    final String? normalizedStatus = ebookStatus?.toString().trim().toLowerCase();
-    final bool isActive = normalizedStatus == 'active' ||
-        ebookStatus == 1 ||
-        ebookStatus == '1' ||
-        ebookStatus == true;
-    final bool canShowPracticeButton =
-        practiceAvailable == true &&  isExpired;
+
+    // তোমার আগের লজিক 그대로
+    final bool canShowPracticeButton = practiceAvailable == true && isExpired;
+
+    // ✅ AppLayout এর ভেতরে BottomNav থাকায় এখানে BottomNavHeight যোগ করবো না
+    const double gapAboveBottomBar = 8; // ঠিক উপরে চাইলে 0, একটু গ্যাপ চাইলে 6/8/10
+
+    // overlay বাটনের মোট height (একটা/দুইটা বাটন)
+    final double ctaStackHeight =
+        (!isExpired ? _ctaHeight : 0) + (canShowPracticeButton ? (_ctaHeight + 10) : 0);
+
+    // scroll content যেন overlay বাটনের নিচে না যায়
+    final double scrollBottomReserve = ctaStackHeight + gapAboveBottomBar + 24;
+
     return AppLayout(
-      // title: "Ebook Details",
       title: "${widget.ebook['name']} Details",
       body: isLoading
-          ?  const ShimmerEbookDetailLoader()
+          ? const ShimmerEbookDetailLoader()
           : isError
-              ? Center(child: Text('Failed to load ebook details'))
-              : Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        // Ebook Title and Details
-                        Text(
-                          'Welcome to Banglamed E-Book',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineMedium, // Updated text style
-                        ),
-                        const SizedBox(height: 8),
+          ? const Center(child: Text('Failed to load ebook details'))
+          : Stack(
+        children: [
+          // ---- Scrollable Content ----
+          SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, scrollBottomReserve),
+            child: Column(
+              children: [
+                Text(
+                  'Welcome to Banglamed E-Book',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 8),
 
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Color(
-                                    0xFFF3F4F6), // Background color for the box
-                                borderRadius: BorderRadius.circular(
-                                    12), // Rounded corners
-                              ),
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize
-                                    .min, // Ensures the column only takes the space needed
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: ((ebookDetail['specifications'] as List?)
-                                            ?? [])
-                                        .map<Widget>((spec) {
-                                  if (spec == null || spec is! Map) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return _buildRow(spec['title'], spec['value']);
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(
-                          height: 8,
-                        ),
-
-                        if (!isExpired)
-                          ElevatedButton(
-                            onPressed: () => _openSubjects(practice: false),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color(0xFF0c4a6e), // Normal color #0c4a6e
-                              padding: EdgeInsets.symmetric(
-                                vertical: 8,
-                                horizontal: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ).copyWith(
-                              backgroundColor:
-                                  MaterialStateProperty.resolveWith<Color>(
-                                (Set<MaterialState> states) {
-                                  if (states.contains(MaterialState.pressed)) {
-                                    return const Color.fromARGB(
-                                            255, 8, 140, 216)
-                                        .withOpacity(0.5);
-                                  } else if (states
-                                      .contains(MaterialState.hovered)) {
-                                    return const Color.fromARGB(
-                                            255, 8, 140, 216)
-                                        .withOpacity(0.8);
-                                  }
-                                  return const Color.fromARGB(255, 12, 128, 196);
-                                },
-                              ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  FontAwesomeIcons
-                                      .solidHandPointRight,
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Go to Subjects',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (isExpired)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 6.0),
-                            child: Text(
-                              'Your reading access is expired.',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        if (canShowPracticeButton) ...[
-                          const SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: () => _openSubjects(practice: true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0f172a),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 8, horizontal: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
-                                Icon(
-                                  FontAwesomeIcons.questionCircle,
-                                  color: Colors.white,
-                                  size: 26,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Practice Questions',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-
-                        SizedBox(height: 16),
-                        // Features and Instructions Tabs
-                        ebookDetail['image'] == null ||
-                                ebookDetail['image'] == ""
-                            ? Container(
-                                width: double.infinity,
-                                height: 200,
-                                color: Colors.grey[200],
-                                child: Center(
-                                  child: Icon(
-                                    Icons.book,
-                                    color: Colors.grey,
-                                    size: 80,
-                                  ),
-                                ),
-                              )
-                            : SizedBox(
-                                width: double.infinity,
-                                height: 400,
-                                child: Image.network(
-                                  ebookDetail['image'],
-                                  fit: BoxFit.contain,
-                                  loadingBuilder: (BuildContext context,
-                                      Widget child,
-                                      ImageChunkEvent? loadingProgress) {
-                                    if (loadingProgress == null) {
-                                      return child;
-                                    } else {
-                                      return Center(
-                                        child: CircularProgressIndicator(
-                                          value: loadingProgress
-                                                      .expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                      .cumulativeBytesLoaded /
-                                                  (loadingProgress
-                                                          .expectedTotalBytes ??
-                                                      1)
-                                              : null,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Center(
-                                      child: Icon(
-                                        Icons.error,
-                                        color: Colors.red,
-                                        size: 80,
-                                      ),
-                                    );
-                                  },
-                                ),
-                                // child: Image(
-                                //   image: AssetImage('assets/productDemo.jpg'),
-
-                                // )
-                              ),
-
-                        // Button to go to subjects
-                        DefaultTabController(
-                          length: 2,
-                          child: Column(
-                            children: [
-                              TabBar(
-                                onTap: (index) {
-                                  setState(() {
-                                    selectedTab = index == 0
-                                        ? 'features'
-                                        : 'instructions';
-                                  });
-                                },
-                                tabs: [
-                                  Tab(text: 'Features'),
-                                  Tab(text: 'Instructions'),
-                                ],
-                              ),
-                              SizedBox(
-                                height: 250,
-                                child: TabBarView(
-                                  children: [
-                                    // Features Tab
-                                    ebookDetail['features'] != null &&
-                                            ebookDetail['features'].isNotEmpty
-                                        ? SingleChildScrollView(
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              child: Html(
-                                                  data:
-                                                      ebookDetail['features']),
-                                            ),
-                                          )
-                                        : Center(
-                                            child:
-                                                Text('No features available')),
-                                    // Instructions Tab
-                                    ebookDetail['instructions'] != null &&
-                                            ebookDetail['instructions']
-                                                .isNotEmpty
-                                        ? SingleChildScrollView(
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              child: Html(
-                                                  data: ebookDetail[
-                                                      'instructions']),
-                                            ),
-                                          )
-                                        : Center(
-                                            child: Text(
-                                                'No instructions available')),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: 16),
-                      ],
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: ((ebookDetail['specifications'] as List?) ?? [])
+                            .map<Widget>((spec) {
+                          if (spec == null || spec is! Map) {
+                            return const SizedBox.shrink();
+                          }
+                          return _buildRow(spec['title'], spec['value']);
+                        }).toList(),
+                      ),
                     ),
-                  )),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                if (isExpired)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6.0),
+                    child: Text(
+                      'Your reading access is expired.',
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 16),
+
+                (ebookDetail['image'] == null || ebookDetail['image'] == "")
+                    ? Container(
+                  width: double.infinity,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(Icons.book, color: Colors.grey, size: 80),
+                  ),
+                )
+                    : SizedBox(
+                  width: double.infinity,
+                  height: 400,
+                  child: Image.network(
+                    ebookDetail['image'],
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                              (loadingProgress.expectedTotalBytes ?? 1)
+                              : null,
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(Icons.error, color: Colors.red, size: 80),
+                      );
+                    },
+                  ),
+                ),
+
+                DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      TabBar(
+                        onTap: (index) {
+                          setState(() {
+                            selectedTab = index == 0 ? 'features' : 'instructions';
+                          });
+                        },
+                        tabs: const [
+                          Tab(text: 'Features'),
+                          Tab(text: 'Instructions'),
+                        ],
+                      ),
+                      SizedBox(
+                        height: 250,
+                        child: TabBarView(
+                          children: [
+                            (ebookDetail['features'] != null &&
+                                ebookDetail['features'].isNotEmpty)
+                                ? SingleChildScrollView(
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Html(data: ebookDetail['features']),
+                              ),
+                            )
+                                : const Center(child: Text('No features available')),
+                            (ebookDetail['instructions'] != null &&
+                                ebookDetail['instructions'].isNotEmpty)
+                                ? SingleChildScrollView(
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Html(data: ebookDetail['instructions']),
+                              ),
+                            )
+                                : const Center(child: Text('No instructions available')),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+
+          // ---- Floating Buttons (fixed bottom) ----
+          if (!isExpired || canShowPracticeButton)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: gapAboveBottomBar, // ✅ bottom bar এর ঠিক উপরে বসবে
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (canShowPracticeButton) ...[
+                    SizedBox(
+                      height: _ctaHeight,
+                      child: ElevatedButton(
+                        onPressed: () => _openSubjects(practice: true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0f172a),
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(
+                              FontAwesomeIcons.questionCircle,
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Practice Questions',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (!isExpired)
+                    SizedBox(
+                      height: _ctaHeight,
+                      child: ElevatedButton(
+                        onPressed: () => _openSubjects(practice: false),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0c4a6e),
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ).copyWith(
+                          backgroundColor:
+                          MaterialStateProperty.resolveWith<Color>(
+                                (Set<MaterialState> states) {
+                              if (states.contains(MaterialState.pressed)) {
+                                return const Color.fromARGB(255, 8, 140, 216)
+                                    .withOpacity(0.5);
+                              } else if (states.contains(MaterialState.hovered)) {
+                                return const Color.fromARGB(255, 8, 140, 216)
+                                    .withOpacity(0.8);
+                              }
+                              return const Color.fromARGB(255, 12, 128, 196);
+                            },
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(
+                              FontAwesomeIcons.solidHandPointRight,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Go to Subjects',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -388,10 +366,7 @@ class _EbookDetailPageState extends State<EbookDetailPage> {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
           ),
           const SizedBox(width: 8),
           Expanded(

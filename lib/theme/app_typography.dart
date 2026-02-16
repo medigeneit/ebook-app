@@ -43,6 +43,7 @@ class AppTypography {
   static TextStyle breadcrumbItem = TextStyle(
     fontWeight: FontWeight.w800,
     color: AppColors.blue800,
+    fontSize: 12,
   );
 
   static const TextStyle sidebarHeader = TextStyle(

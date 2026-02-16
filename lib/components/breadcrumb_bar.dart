@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:ebook_project/theme/app_colors.dart';
 import 'package:ebook_project/theme/app_typography.dart';
 
-class BreadcrumbBar extends StatelessWidget {
-  final List<String>
-      items; // ["SUBJECTS", "PATHOLOGY", "ALL DEFINITION AT A GLANCE", ...]
-  final List<VoidCallback?>? onItemTap; // same length (optional)
+class BreadcrumbBar extends StatefulWidget {
+  final List<String> items;
+  final List<VoidCallback?>? onItemTap;
   final VoidCallback? onHome;
 
-  /// 1 => first + … + last
-  /// 2 => first + second + … + last
   final int leadingCount;
 
   const BreadcrumbBar({
@@ -21,9 +18,72 @@ class BreadcrumbBar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final crumbs = _buildCollapsedItems(context, items, leadingCount);
+  State<BreadcrumbBar> createState() => _BreadcrumbBarState();
+}
 
+class _BreadcrumbBarState extends State<BreadcrumbBar> {
+  final ScrollController _sc = ScrollController();
+
+  bool _canScrollRight = false;
+  bool _canScrollLeft = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sc.addListener(_recalc);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _recalc());
+  }
+
+  @override
+  void didUpdateWidget(covariant BreadcrumbBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.items.length != widget.items.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _recalc());
+    }
+  }
+
+  void _recalc() {
+    if (!_sc.hasClients) return;
+
+    final max = _sc.position.maxScrollExtent;
+    final off = _sc.offset;
+
+    final canRight = max > 0 && off < max - 1;
+    final canLeft = max > 0 && off > 1;
+
+    if (canRight != _canScrollRight || canLeft != _canScrollLeft) {
+      setState(() {
+        _canScrollRight = canRight;
+        _canScrollLeft = canLeft;
+      });
+    }
+  }
+
+  void _scrollByPage({required bool toRight}) {
+    if (!_sc.hasClients) return;
+
+    final viewport = _sc.position.viewportDimension; // visible width
+    final delta = viewport * 0.8; // এক ক্লিকে 80% width পরিমান স্ক্রল
+
+    final target = toRight ? (_sc.offset + delta) : (_sc.offset - delta);
+    final clamped = target.clamp(0.0, _sc.position.maxScrollExtent);
+
+    _sc.animateTo(
+      clamped,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _sc.removeListener(_recalc);
+    _sc.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
@@ -33,19 +93,17 @@ class BreadcrumbBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: const [
-          BoxShadow(
-              color: AppColors.shadowSm, blurRadius: 6, offset: Offset(0, 2)),
+          BoxShadow(color: AppColors.shadowSm, blurRadius: 6, offset: Offset(0, 2)),
         ],
       ),
       child: Row(
         children: [
           InkWell(
-            onTap: onHome,
+            onTap: widget.onHome,
             child: const Icon(Icons.home, size: 18, color: AppColors.blue900),
           ),
           const SizedBox(width: 10),
 
-          // No scroll, chip style, overflow safe
           Expanded(
             child: SizedBox(
               height: 34,
@@ -53,39 +111,37 @@ class BreadcrumbBar extends StatelessWidget {
                 children: [
                   // scrollable crumbs
                   ListView.separated(
+                    controller: _sc,
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    itemCount: items.length,
-                    padding: const EdgeInsets.only(right: 26),
-                    // ✅ indicator space
+                    itemCount: widget.items.length,
+                    padding: const EdgeInsets.only(right: 36), // ✅ button space
                     separatorBuilder: (_, __) => const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
-                      child: Icon(Icons.chevron_right,
-                          size: 16, color: Colors.black45),
+                      padding: EdgeInsets.symmetric(horizontal: 4), // gap কমালাম
+                      child: Icon(Icons.chevron_right, size: 16, color: Colors.black45),
                     ),
                     itemBuilder: (context, idx) {
-                      final cb = (onItemTap != null && idx < onItemTap!.length)
-                          ? onItemTap![idx]
+                      final cb = (widget.onItemTap != null && idx < widget.onItemTap!.length)
+                          ? widget.onItemTap![idx]
                           : null;
 
                       return _crumbChip(
                         context,
-                        label: items[idx],
+                        label: widget.items[idx],
                         onTap: cb,
-                        isLast: idx == items.length - 1,
+                        isLast: idx == widget.items.length - 1,
                       );
                     },
                   ),
 
-                  // ✅ right fade + arrow indicator (always visible)
+                  // ✅ right fade (hint)
                   Positioned(
-                    right: 0,
+                    right: 34,
                     top: 0,
                     bottom: 0,
                     child: IgnorePointer(
                       child: Container(
-                        width: 26,
-                        alignment: Alignment.centerRight,
+                        width: 24,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.centerLeft,
@@ -96,14 +152,33 @@ class BreadcrumbBar extends StatelessWidget {
                             ],
                           ),
                         ),
-                        child: const Icon(
-                          Icons.chevron_right,
-                          size: 18,
-                          color: Colors.black45,
-                        ),
                       ),
                     ),
                   ),
+
+                  // ✅ RIGHT BUTTON (click => scroll right)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: _ScrollButton(
+                      enabled: _canScrollRight,
+                      icon: Icons.chevron_right,
+                      onTap: () => _scrollByPage(toRight: true),
+                    ),
+                  ),
+
+                  // (optional) LEFT BUTTON (তুমি চাইলে রাখো)
+                  // Positioned(
+                  //   left: 0,
+                  //   top: 0,
+                  //   bottom: 0,
+                  //   child: _ScrollButton(
+                  //     enabled: _canScrollLeft,
+                  //     icon: Icons.chevron_left,
+                  //     onTap: () => _scrollByPage(toRight: false),
+                  //   ),
+                  // ),
                 ],
               ),
             ),
@@ -113,166 +188,23 @@ class BreadcrumbBar extends StatelessWidget {
     );
   }
 
-  // ---------- BottomSheet ----------
-  void _openAllPathsSheet(BuildContext context) {
-    if (items.length <= 3) return;
-
-    // leading 1/2 বাদ দিয়ে last বাদ দিয়ে মাঝখানের অংশ
-    final lead = leadingCount.clamp(1, 2);
-    final middleStart = lead;
-    final middleEnd = items.length - 1; // last excluded
-
-    final middleIndexes = <int>[];
-    for (int i = middleStart; i < middleEnd; i++) {
-      middleIndexes.add(i);
-    }
-
-    if (middleIndexes.isEmpty) return;
-
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: AppColors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.account_tree_outlined,
-                        size: 18, color: Colors.black54),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Paths',
-                      style: AppTypography.breadcrumbItem.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                // list
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: middleIndexes.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (ctx, i) {
-                      final originalIndex = middleIndexes[i];
-                      final label = items[originalIndex];
-                      final cb = (onItemTap != null &&
-                              originalIndex < onItemTap!.length)
-                          ? onItemTap![originalIndex]
-                          : null;
-
-                      return ListTile(
-                        dense: true,
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 2),
-                        leading: const Icon(Icons.chevron_right,
-                            size: 18, color: Colors.black45),
-                        title: Text(
-                          label,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.breadcrumbItem.copyWith(
-                            fontSize: 12,
-                            color:
-                                cb != null ? AppColors.blue900 : Colors.black87,
-                            decoration: cb != null
-                                ? TextDecoration.underline
-                                : TextDecoration.none,
-                          ),
-                        ),
-                        onTap: cb == null
-                            ? null
-                            : () {
-                                Navigator.pop(ctx);
-                                cb();
-                              },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ---------- helpers ----------
-  _CrumbChipData _mapToData(int originalIndex) {
-    final cb = (onItemTap != null && originalIndex < onItemTap!.length)
-        ? onItemTap![originalIndex]
-        : null;
-    return _CrumbChipData(
-        label: items[originalIndex], onTap: cb, isEllipsis: false);
-  }
-
-  List<_CrumbChipData> _buildCollapsedItems(
-      BuildContext context, List<String> items, int leadingCount) {
-    if (items.isEmpty) return [];
-
-    // ছোট হলে সব দেখাও
-    if (items.length <= 3) {
-      return List.generate(items.length, (i) => _mapToData(i));
-    }
-
-    final lead = leadingCount.clamp(1, 2);
-    final out = <_CrumbChipData>[];
-
-    // first (and maybe second)
-    for (int i = 0; i < lead && i < items.length - 1; i++) {
-      out.add(_mapToData(i));
-    }
-
-    // ellipsis
-    out.add(const _CrumbChipData(label: '…', onTap: null, isEllipsis: true));
-
-    // last
-    out.add(_mapToData(items.length - 1));
-
-    return out;
-  }
-
-  Widget _ellipsisChip(BuildContext context, {required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Chip(
-        label: Text('…',
-            style:
-                AppTypography.breadcrumbItem.copyWith(color: Colors.black54)),
-        backgroundColor: const Color(0xFFF3F4F6),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-      ),
-    );
-  }
-
-  Widget _crumbChip(BuildContext context,
-      {required String label, VoidCallback? onTap, required bool isLast}) {
+  Widget _crumbChip(
+      BuildContext context, {
+        required String label,
+        VoidCallback? onTap,
+        required bool isLast,
+      }) {
     final maxW = MediaQuery.of(context).size.width * (isLast ? 0.45 : 0.28);
 
     final textStyle = AppTypography.breadcrumbItem.copyWith(
       color: isLast ? AppColors.blue900 : Colors.black87,
-      decoration:
-          onTap != null ? TextDecoration.underline : TextDecoration.none,
+      decoration: onTap != null ? TextDecoration.underline : TextDecoration.none,
     );
 
     final chip = Chip(
+      visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
       label: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxW),
         child: Text(
@@ -283,11 +215,9 @@ class BreadcrumbBar extends StatelessWidget {
           style: textStyle,
         ),
       ),
-      backgroundColor:
-          isLast ? const Color(0xFFEFF6FF) : const Color(0xFFF9FAFB),
+      backgroundColor: isLast ? const Color(0xFFEFF6FF) : const Color(0xFFF9FAFB),
       side: const BorderSide(color: Color(0xFFE5E7EB)),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
     );
 
     if (onTap == null) return chip;
@@ -300,14 +230,37 @@ class BreadcrumbBar extends StatelessWidget {
   }
 }
 
-class _CrumbChipData {
-  final String label;
-  final VoidCallback? onTap;
-  final bool isEllipsis;
+class _ScrollButton extends StatelessWidget {
+  final bool enabled;
+  final IconData icon;
+  final VoidCallback onTap;
 
-  const _CrumbChipData({
-    required this.label,
+  const _ScrollButton({
+    required this.enabled,
+    required this.icon,
     required this.onTap,
-    required this.isEllipsis,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: enabled ? const Color(0xFFF3F4F6) : const Color(0xFFE5E7EB),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: enabled ? Colors.black54 : Colors.black26,
+        ),
+      ),
+    );
+  }
 }

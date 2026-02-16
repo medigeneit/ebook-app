@@ -4,6 +4,7 @@ import 'package:ebook_project/components/shimmer_list_loader.dart';
 import 'package:ebook_project/screens/ebook_chapters.dart';
 import 'package:ebook_project/models/ebook_subject.dart';
 import 'package:ebook_project/screens/practice/practice_questions.dart';
+import 'package:ebook_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import 'package:ebook_project/components/breadcrumb_bar.dart';
@@ -341,7 +342,7 @@ class _GridCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFFBEAEC),
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFE5E7EB)),
           boxShadow: const [

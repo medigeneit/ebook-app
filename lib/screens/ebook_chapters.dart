@@ -405,7 +405,7 @@ class _GridCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.gridCardBg,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.cardBorder),
           boxShadow: const [

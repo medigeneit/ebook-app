@@ -4,6 +4,9 @@ import 'package:ebook_project/api/api_service.dart';
 import 'package:ebook_project/components/app_layout.dart';
 import 'package:ebook_project/models/ebook_content.dart';
 import 'package:ebook_project/models/ebook_subject.dart';
+import 'package:ebook_project/models/ebook_chapter.dart';
+import 'package:ebook_project/models/ebook_topic.dart';
+import 'package:ebook_project/utils/token_store.dart';
 
 import 'package:ebook_project/components/contents/content_card.dart';
 import 'package:ebook_project/components/contents/skeletons.dart';
@@ -13,10 +16,11 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import 'package:ebook_project/components/breadcrumb_bar.dart';
 import 'package:ebook_project/components/collapsible_sidebar.dart';
-import 'package:ebook_project/screens/ebook_chapters.dart';
-import 'package:ebook_project/screens/practice/practice_questions.dart';
 
-import 'ebook_topics.dart';
+import 'package:ebook_project/screens/ebook_subjects.dart';
+import 'package:ebook_project/screens/ebook_chapters.dart';
+import 'package:ebook_project/screens/ebook_topics.dart';
+import 'package:ebook_project/screens/practice/practice_questions.dart';
 
 class EbookContentsPage extends StatefulWidget {
   final String ebookId;
@@ -86,18 +90,18 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     super.dispose();
   }
 
-  bool _isLocked(dynamic v) => v == true || v == 1 || v == '1';
-
   Future<void> fetchSidebarSubjects() async {
     setState(() => sidebarLoading = true);
     try {
       final api = ApiService();
-      final endpoint = "/v1/ebooks/${widget.ebookId}/subjects";
+      var endpoint = "/v1/ebooks/${widget.ebookId}/subjects";
+      endpoint = await TokenStore.attachPracticeToken(endpoint);
+
       final data = await api.fetchEbookData(endpoint);
 
       final list = (data['subjects'] as List? ?? [])
           .map((e) => EbookSubject.fromJson(e))
-          .where((s) => s.title.isNotEmpty)
+          .where((s) => s.title.trim().isNotEmpty)
           .toList();
 
       if (!mounted) return;
@@ -112,17 +116,22 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   }
 
   Future<void> fetchEbookContents() async {
-    final apiService = ApiService();
     try {
-      final data = await apiService.fetchEbookData(
+      final api = ApiService();
+      final data = await api.fetchEbookData(
         "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents",
       );
+
+      if (!mounted) return;
       setState(() {
-        ebookContents =
-            (data['contents'] as List).map((e) => EbookContent.fromJson(e)).toList();
+        ebookContents = (data['contents'] as List? ?? [])
+            .map((e) => EbookContent.fromJson(e))
+            .toList();
         isLoading = false;
+        isError = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() {
         isLoading = false;
         isError = true;
@@ -132,10 +141,8 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
 
   String get _subjectTitleResolved {
     if (widget.subjectTitle.trim().isNotEmpty) return widget.subjectTitle.trim();
-    final hit =
-    sidebarSubjects.where((s) => s.id.toString() == widget.subjectId).toList();
-    if (hit.isNotEmpty) return hit.first.title;
-    return 'SUBJECT';
+    final hit = sidebarSubjects.where((s) => s.id.toString() == widget.subjectId);
+    return hit.isNotEmpty ? hit.first.title : 'SUBJECT';
   }
 
   String get _chapterTitleResolved =>
@@ -144,103 +151,88 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   String get _topicTitleResolved =>
       widget.topicTitle.trim().isNotEmpty ? widget.topicTitle.trim() : 'TOPIC';
 
-  // ✅ Tree children loader
+  // ---------- Sidebar tree loaders ----------
   Future<List<SidebarItem>> _loadChildren(SidebarItem parent) async {
     final api = ApiService();
 
     if (parent.type == SidebarItemType.subject) {
-      final subjectId = parent.id;
-      final data = await api.fetchEbookData(
-        "/v1/ebooks/${widget.ebookId}/subjects/$subjectId/chapters",
-      );
-      final chapters = (data['chapters'] as List? ?? []);
+      var endpoint =
+          "/v1/ebooks/${widget.ebookId}/subjects/${parent.id}/chapters";
+      endpoint = await TokenStore.attachPracticeToken(endpoint);
+
+      final data = await api.fetchEbookData(endpoint);
+      final chapters = (data['chapters'] as List? ?? [])
+          .map((e) => EbookChapter.fromJson(e))
+          .where((c) => c.title.trim().isNotEmpty)
+          .toList();
 
       return chapters
-          .map<SidebarItem?>((c) {
-        final id = (c['id'] ?? '').toString();
-        final title = (c['title'] ?? c['name'] ?? '').toString();
-        final locked = _isLocked(c['locked']);
-        if (title.trim().isEmpty) return null;
-
-        return SidebarItem(
-          id: id,
-          title: title,
-          locked: locked,
+          .map<SidebarItem>(
+            (c) => SidebarItem(
+          id: c.id.toString(),
+          title: c.title,
+          locked: c.locked == true,
           type: SidebarItemType.chapter,
           hasChildren: true,
-          meta: {
-            'subjectId': subjectId,
-            'subjectTitle': parent.title,
-          },
-        );
-      })
-          .whereType<SidebarItem>()
+          meta: {'subjectId': parent.id, 'subjectTitle': parent.title},
+        ),
+      )
           .toList();
     }
 
     if (parent.type == SidebarItemType.chapter) {
-      final subjectId = parent.meta['subjectId'] ?? '';
-      final chapterId = parent.id;
+      final subjectId = parent.meta['subjectId'] ?? widget.subjectId;
 
-      final data = await api.fetchEbookData(
-        "/v1/ebooks/${widget.ebookId}/subjects/$subjectId/chapters/$chapterId/topics",
-      );
-      final topics = (data['topics'] as List? ?? []);
+      var endpoint =
+          "/v1/ebooks/${widget.ebookId}/subjects/$subjectId/chapters/${parent.id}/topics";
+      endpoint = await TokenStore.attachPracticeToken(endpoint);
+
+      final data = await api.fetchEbookData(endpoint);
+      final topics = (data['topics'] as List? ?? [])
+          .map((e) => EbookTopic.fromJson(e))
+          .where((t) => t.title.trim().isNotEmpty)
+          .toList();
 
       return topics
-          .map<SidebarItem?>((t) {
-        final id = (t['id'] ?? '').toString();
-        final title = (t['title'] ?? t['name'] ?? '').toString();
-        final locked = _isLocked(t['locked']);
-        if (title.trim().isEmpty) return null;
-
-        return SidebarItem(
-          id: id,
-          title: title,
-          locked: locked,
+          .map<SidebarItem>(
+            (t) => SidebarItem(
+          id: t.id.toString(),
+          title: t.title,
+          locked: t.locked == true,
           type: SidebarItemType.topic,
           hasChildren: false,
           meta: {
             'subjectId': subjectId,
-            'chapterId': chapterId,
-            'subjectTitle': parent.meta['subjectTitle'] ?? '',
+            'subjectTitle': parent.meta['subjectTitle'] ?? _subjectTitleResolved,
+            'chapterId': parent.id,
             'chapterTitle': parent.title,
           },
-        );
-      })
-          .whereType<SidebarItem>()
+        ),
+      )
           .toList();
     }
 
-    return [];
+    return const <SidebarItem>[];
   }
 
-  void _handleSidebarTap(SidebarItem it) {
+  void _onSidebarTap(SidebarItem it) {
     if (it.locked) return;
 
     if (it.type != SidebarItemType.topic) return;
 
-    final subjectId = it.meta['subjectId'] ?? '';
-    final chapterId = it.meta['chapterId'] ?? '';
-    final topicId = it.id;
+    final subjectId = it.meta['subjectId'] ?? widget.subjectId;
+    final chapterId = it.meta['chapterId'] ?? widget.chapterId;
 
-    final subjectTitle = (it.meta['subjectTitle'] ?? '').trim();
-    final chapterTitle = (it.meta['chapterTitle'] ?? '').trim();
-    final topicTitle = it.title.trim();
-
-    final low = topicTitle.toLowerCase();
-    final isPracticeQuestions =
-    (low == 'practice questions' || low == 'practice question');
-
-    if (isPracticeQuestions) {
-      Navigator.pushReplacement(
+    // practice questions special
+    if (it.title.trim().toLowerCase() == 'practice questions') {
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => PracticeQuestionsPage(
             ebookId: widget.ebookId,
             subjectId: subjectId,
             chapterId: chapterId,
-            topicId: topicId,
+            topicId: it.id,
             ebookName: widget.ebookName,
           ),
         ),
@@ -255,45 +247,47 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           ebookId: widget.ebookId,
           subjectId: subjectId,
           chapterId: chapterId,
-          topicId: topicId,
+          topicId: it.id,
           ebookName: widget.ebookName,
-          subjectTitle: subjectTitle,
-          chapterTitle: chapterTitle,
-          topicTitle: topicTitle,
+          subjectTitle: it.meta['subjectTitle'] ?? _subjectTitleResolved,
+          chapterTitle: it.meta['chapterTitle'] ?? _chapterTitleResolved,
+          topicTitle: it.title,
         ),
       ),
     );
   }
 
+  // ---------- Existing modal fetch ----------
   Future<void> fetchDiscussionContent(String contentId) async {
     setState(() => showModalLoader = true);
-    final apiService = ApiService();
     try {
-      final response = await apiService.fetchRawTextData(
+      final api = ApiService();
+      final response = await api.fetchRawTextData(
         "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents/$contentId/discussion",
       );
+      if (!mounted) return;
       setState(() {
         discussionContent = response;
         showDiscussionModal = true;
         showModalLoader = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() => showModalLoader = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to load discussion")),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Failed to load discussion")));
     }
   }
 
   Future<void> fetchSolveVideos(String contentId) async {
     setState(() => showModalLoader = true);
-    final apiService = ApiService();
     try {
-      final data = await apiService.fetchEbookData(
+      final api = ApiService();
+      final data = await api.fetchEbookData(
         "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents/$contentId/solve-videos",
       );
 
-      solveVideos = (data['solve_videos'] as List)
+      solveVideos = (data['solve_videos'] as List? ?? [])
           .map((e) => {
         'title': e['title'] ?? 'Video',
         'video_url': e['link'] ?? e['video_url'],
@@ -301,11 +295,13 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           .where((v) => v['video_url'] != null)
           .toList();
 
+      if (!mounted) return;
       setState(() {
         showVideoModal = true;
         showModalLoader = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() => showModalLoader = false);
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text("Failed to load videos")));
@@ -314,17 +310,19 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
 
   Future<void> fetchReferenceContent(String contentId) async {
     setState(() => showModalLoader = true);
-    final apiService = ApiService();
     try {
-      final response = await apiService.fetchRawTextData(
+      final api = ApiService();
+      final response = await api.fetchRawTextData(
         "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents/$contentId/references",
       );
+      if (!mounted) return;
       setState(() {
         referenceContent = response;
         showReferenceModal = true;
         showModalLoader = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() => showModalLoader = false);
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text("Failed to load references")));
@@ -334,15 +332,15 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   @override
   Widget build(BuildContext context) {
     final List<SidebarItem> sidebarItems = sidebarSubjects
-        .where((s) => s.title.isNotEmpty)
-        .map<SidebarItem>((s) => SidebarItem(
-      id: s.id.toString(),
-      title: s.title,
-      locked: s.locked == true,
-      type: SidebarItemType.subject,
-      hasChildren: true,
-      meta: {'subjectTitle': s.title},
-    ))
+        .map<SidebarItem>(
+          (s) => SidebarItem(
+        id: s.id.toString(),
+        title: s.title,
+        locked: s.locked == true,
+        type: SidebarItemType.subject,
+        hasChildren: true,
+      ),
+    )
         .toList();
 
     return Stack(
@@ -364,14 +362,25 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                 child: BreadcrumbBar(
                   items: [
+                    'SUBJECTS',
                     _subjectTitleResolved.toUpperCase(),
                     _chapterTitleResolved.toUpperCase(),
                     _topicTitleResolved.toUpperCase(),
                   ],
                   onHome: () => Navigator.pop(context),
-                  onTapCrumb: (i) {
-                    if (i == 0) {
-                      // subject => chapters
+                  onItemTap: [
+                        () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EbookSubjectsPage(
+                            ebookId: widget.ebookId,
+                            ebookName: widget.ebookName,
+                          ),
+                        ),
+                      );
+                    },
+                        () {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
@@ -383,11 +392,8 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                           ),
                         ),
                       );
-                      return;
-                    }
-
-                    if (i == 1) {
-                      // chapter => topics
+                    },
+                        () {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
@@ -396,22 +402,15 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                             subjectId: widget.subjectId,
                             chapterId: widget.chapterId,
                             ebookName: widget.ebookName,
-                            practice: false, // contents এ practice allow না হলে
                             subjectTitle: _subjectTitleResolved,
                             chapterTitle: _chapterTitleResolved,
                           ),
                         ),
                       );
-                      return;
-                    }
-
-                    if (i == 2) {
-                      // topic => generally do nothing (already here) OR go back to topics
-                      Navigator.pop(context);
-                    }
-                  },
+                    },
+                    null,
+                  ],
                 ),
-
               ),
               Expanded(
                 child: ListView.separated(
@@ -477,11 +476,11 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           onClose: () => setState(() => sidebarOpen = false),
           headerTitle: 'Subjects',
           items: sidebarItems,
-          selectedId: widget.subjectId,
+          selectedKey: 't:${widget.topicId}',
           loadChildren: _loadChildren,
           onTap: (it) {
             setState(() => sidebarOpen = false);
-            _handleSidebarTap(it);
+            _onSidebarTap(it);
           },
         ),
 
@@ -490,17 +489,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
             title: 'Discussion',
             onClose: () => setState(() => showDiscussionModal = false),
             child: SingleChildScrollView(
-              child: Html(
-                data: discussionContent,
-                style: {
-                  "*": Style(
-                    backgroundColor: Colors.transparent,
-                    fontSize: FontSize.medium,
-                    color: Colors.black,
-                  ),
-                  "p": Style(margin: Margins.only(bottom: 6)),
-                },
-              ),
+              child: Html(data: discussionContent),
             ),
           ),
 
@@ -542,17 +531,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
             title: 'Reference',
             onClose: () => setState(() => showReferenceModal = false),
             child: SingleChildScrollView(
-              child: Html(
-                data: referenceContent,
-                style: {
-                  "*": Style(
-                    backgroundColor: Colors.transparent,
-                    fontSize: FontSize.medium,
-                    color: Colors.black,
-                  ),
-                  "p": Style(margin: Margins.only(bottom: 6)),
-                },
-              ),
+              child: Html(data: referenceContent),
             ),
           ),
 

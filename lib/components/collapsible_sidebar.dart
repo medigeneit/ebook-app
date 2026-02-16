@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:ebook_project/theme/app_colors.dart';
+import 'package:ebook_project/theme/app_typography.dart';
 
 enum SidebarItemType { subject, chapter, topic }
 
@@ -11,7 +13,7 @@ class SidebarItem {
   final SidebarItemType type;
   final bool hasChildren;
 
-  /// carry ids for navigation: subjectId/chapterId
+  /// subjectId/chapterId carry করার জন্য
   final Map<String, String> meta;
 
   const SidebarItem({
@@ -22,27 +24,39 @@ class SidebarItem {
     this.hasChildren = false,
     this.meta = const {},
   });
+
+  String get key {
+    String p = 'i';
+    switch (type) {
+      case SidebarItemType.subject:
+        p = 's';
+        break;
+      case SidebarItemType.chapter:
+        p = 'c';
+        break;
+      case SidebarItemType.topic:
+        p = 't';
+        break;
+    }
+    return '$p:$id';
+  }
 }
 
 class CollapsibleSidebar extends StatefulWidget {
   final bool open;
   final VoidCallback onClose;
 
-  /// Root level items (subjects)
+  final String headerTitle;
+
   final List<SidebarItem> items;
 
-  /// Leaf (topic) click করলে navigate/handle
+  /// topic click করলে navigate callback
   final void Function(SidebarItem item) onTap;
 
-  final String? selectedId;
+  /// unique selected highlight (e.g. "s:12", "c:55", "t:99")
+  final String? selectedKey;
 
-  /// Lazy load:
-  /// subject -> chapters
-  /// chapter -> topics
   final Future<List<SidebarItem>> Function(SidebarItem parent)? loadChildren;
-
-  /// header title (optional)
-  final String headerTitle;
 
   const CollapsibleSidebar({
     super.key,
@@ -50,7 +64,7 @@ class CollapsibleSidebar extends StatefulWidget {
     required this.onClose,
     required this.items,
     required this.onTap,
-    this.selectedId,
+    this.selectedKey,
     this.loadChildren,
     this.headerTitle = 'Subjects',
   });
@@ -61,8 +75,8 @@ class CollapsibleSidebar extends StatefulWidget {
 
 class _CollapsibleSidebarState extends State<CollapsibleSidebar> {
   final Set<String> _expanded = {};
-  final Map<String, List<SidebarItem>> _childrenByParent = {};
-  final Set<String> _loadingParentIds = {};
+  final Map<String, List<SidebarItem>> _childrenByParentKey = {};
+  final Set<String> _loadingParentKeys = {};
 
   double get _panelW => MediaQuery.of(context).size.width * 0.78;
 
@@ -78,46 +92,48 @@ class _CollapsibleSidebarState extends State<CollapsibleSidebar> {
   }
 
   Future<void> _toggleExpand(SidebarItem item) async {
-    final id = "${item.type.name}:${item.id}";
+    final k = item.key;
 
+    // locked হলে expand না, parent এ callback (dialog)
     if (item.locked) {
       widget.onTap(item);
       return;
     }
 
-    final willExpand = !_expanded.contains(id);
+    final willExpand = !_expanded.contains(k);
 
     setState(() {
       if (willExpand) {
-        _expanded.add(id);
+        _expanded.add(k);
       } else {
-        _expanded.remove(id);
+        _expanded.remove(k);
       }
     });
 
     if (!willExpand) return;
-    if (_childrenByParent.containsKey(id)) return;
 
+    if (_childrenByParentKey.containsKey(k)) return;
     if (widget.loadChildren == null) return;
     if (!item.hasChildren) return;
 
-    setState(() => _loadingParentIds.add(id));
+    setState(() => _loadingParentKeys.add(k));
     try {
       final kids = await widget.loadChildren!(item);
       if (!mounted) return;
-      setState(() => _childrenByParent[id] = kids);
+      setState(() {
+        _childrenByParentKey[k] = kids;
+      });
     } finally {
       if (!mounted) return;
-      setState(() => _loadingParentIds.remove(id));
+      setState(() => _loadingParentKeys.remove(k));
     }
   }
 
   Widget _buildNode(SidebarItem it, int level) {
-    final key = "${it.type.name}:${it.id}";
-    final selected = widget.selectedId != null && it.id == widget.selectedId;
-    final expanded = _expanded.contains(key);
-    final loading = _loadingParentIds.contains(key);
-    final children = _childrenByParent[key] ?? const <SidebarItem>[];
+    final selected = widget.selectedKey != null && it.key == widget.selectedKey;
+    final expanded = _expanded.contains(it.key);
+    final loading = _loadingParentKeys.contains(it.key);
+    final children = _childrenByParentKey[it.key] ?? const <SidebarItem>[];
 
     final showExpandArrow = it.hasChildren;
 
@@ -134,10 +150,10 @@ class _CollapsibleSidebarState extends State<CollapsibleSidebar> {
             _toggleExpand(it);
           },
           child: Container(
-            margin: EdgeInsets.fromLTRB(10 + (level * 10.0), 4, 10, 4),
+            margin: EdgeInsets.fromLTRB(10 + (level * 8.0), 4, 10, 4),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
-              color: selected ? Colors.white.withOpacity(0.12) : Colors.transparent,
+              color: selected ? AppColors.sidebarSelectedBg : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -153,20 +169,19 @@ class _CollapsibleSidebarState extends State<CollapsibleSidebar> {
                       : const SizedBox.shrink(),
                 ),
                 const SizedBox(width: 6),
-                Icon(_iconFor(it.type), size: 15, color: Colors.white),
+
+                Icon(_iconFor(it.type), size: 15, color: AppColors.white),
                 const SizedBox(width: 10),
+
                 Expanded(
                   child: Text(
                     it.title.toUpperCase(),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      height: 1.15,
-                    ),
+                    style: AppTypography.sidebarItem,
                   ),
                 ),
+
                 if (it.locked)
                   const Padding(
                     padding: EdgeInsets.only(left: 8),
@@ -179,7 +194,7 @@ class _CollapsibleSidebarState extends State<CollapsibleSidebar> {
 
         if (expanded)
           Padding(
-            padding: EdgeInsets.only(left: 18 + (level * 10.0)),
+            padding: EdgeInsets.only(left: 18 + (level * 8.0)),
             child: Container(
               decoration: const BoxDecoration(
                 border: Border(left: BorderSide(color: Colors.white24, width: 1)),
@@ -191,10 +206,7 @@ class _CollapsibleSidebarState extends State<CollapsibleSidebar> {
                   child: SizedBox(
                     height: 18,
                     width: 18,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
+                    child: CircularProgressIndicator(color: AppColors.white, strokeWidth: 2),
                   ),
                 ),
               )
@@ -216,7 +228,7 @@ class _CollapsibleSidebarState extends State<CollapsibleSidebar> {
         if (widget.open)
           GestureDetector(
             onTap: widget.onClose,
-            child: Container(color: Colors.black45),
+            child: Container(color: AppColors.sidebarOverlay),
           ),
         AnimatedPositioned(
           duration: const Duration(milliseconds: 220),
@@ -226,7 +238,7 @@ class _CollapsibleSidebarState extends State<CollapsibleSidebar> {
           left: widget.open ? 0 : -panelW,
           width: panelW,
           child: Material(
-            color: const Color(0xFF0b5b77),
+            color: AppColors.sidebarBg,
             child: SafeArea(
               child: Column(
                 children: [
@@ -234,18 +246,11 @@ class _CollapsibleSidebarState extends State<CollapsibleSidebar> {
                     padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                     child: Row(
                       children: [
-                        Text(
-                          widget.headerTitle,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
+                        Text(widget.headerTitle, style: AppTypography.sidebarHeader),
                         const Spacer(),
                         IconButton(
                           onPressed: widget.onClose,
-                          icon: const Icon(Icons.close, color: Colors.white),
+                          icon: const Icon(Icons.close, color: AppColors.white),
                         ),
                       ],
                     ),
@@ -280,14 +285,14 @@ class SidebarFloatingButton extends StatelessWidget {
         top: false,
         child: Material(
           elevation: 6,
-          color: const Color(0xFFF3F4F6),
+          color: AppColors.floatingBtnBg,
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onTap,
             child: const Padding(
               padding: EdgeInsets.all(14),
-              child: Icon(Icons.menu, color: Color(0xFF0c4a6e)), // three-dot feel
+              child: Icon(Icons.menu, color: AppColors.blue900),
             ),
           ),
         ),

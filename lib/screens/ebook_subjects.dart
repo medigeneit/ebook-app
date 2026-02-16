@@ -190,10 +190,6 @@ class _EbookSubjectsPageState extends State<EbookSubjectsPage> {
                 BreadcrumbBar(
                   items: const ['SUBJECTS'],
                   onHome: () => Navigator.pop(context),
-                  onTapCrumb: (i) {
-                    // i=0 => subject title click
-                    Navigator.pop(context); // chapters থেকে back করলে subjects এ যায়
-                  },
                 ),
                 Expanded(
                   child: ebookSubjects.isEmpty

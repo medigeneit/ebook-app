@@ -208,8 +208,10 @@ class AppColors {
   static const Color blue600 = Color(0xFF2563EB); // Colors.blue.shade600
   static const Color blue800 = Color(0xFF1E40AF); // Colors.blue.shade800
 
-  static final Color blueShade600 = Colors.blue.shade600; // Colors.blue.shade800
-  static final Color blueShade800 = Colors.blue.shade800; // Colors.blue.shade800
+  static final Color blueShade600 =
+      Colors.blue.shade600; // Colors.blue.shade800
+  static final Color blueShade800 =
+      Colors.blue.shade800; // Colors.blue.shade800
 
 // Inactive icon color
   static const Color slate500 = Color(0xFF64748B); // Colors.slate.shade500
@@ -224,10 +226,10 @@ class AppColors {
 
 // Optional helper: the same gradient used in app_layout.dart
   static LinearGradient primaryGradient() => const LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [blue600, blue800],
-  );
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [blue600, blue800],
+      );
 
   static LinearGradient primaryGradientSoft() => LinearGradient(
         begin: Alignment.topLeft,
@@ -237,4 +239,21 @@ class AppColors {
           blue800.withOpacity(0.75),
         ],
       );
+
+  // --- Sidebar / Navigation ---
+  static const Color sidebarBg = Color(0xFF0B5B77);
+  static const Color sidebarOverlay = Color(0x73000000); // = Colors.black45
+  static const Color sidebarSelectedBg = Color(0x1FFFFFFF); // white 12%
+  static const Color shadowSm = Color(0x1F000000); // = Colors.black12
+
+// --- Cards ---
+  static const Color gridCardBg = Color(0xFFFBEAEC);
+
+// --- Floating button ---
+  static const Color floatingBtnBg = Color(0xFFF3F4F6);
+
+  static const Color text = Color(0xFF0F172A); // slate-900 type
+
+  static const Color blue900 = Color(0xFF0C4A6E); // তোমার UI তে যেটা ব্যবহার করছো
+
 }

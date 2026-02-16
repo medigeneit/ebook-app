@@ -39,4 +39,28 @@ class AppTypography {
       ),
     );
   }
+
+  static TextStyle breadcrumbItem = TextStyle(
+    fontWeight: FontWeight.w800,
+    color: AppColors.blue800,
+  );
+
+  static const TextStyle sidebarHeader = TextStyle(
+    color: AppColors.white,
+    fontSize: 16,
+    fontWeight: FontWeight.w900,
+  );
+
+  static const TextStyle sidebarItem = TextStyle(
+    color: AppColors.white,
+    fontWeight: FontWeight.w800,
+    height: 1.15,
+  );
+
+  static TextStyle gridCardTitle = TextStyle(
+    fontWeight: FontWeight.w900,
+    color: AppColors.text,
+    height: 1.15,
+    fontSize: 12.5,
+  );
 }

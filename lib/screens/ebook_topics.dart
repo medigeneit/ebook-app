@@ -1,16 +1,20 @@
 import 'package:ebook_project/api/api_service.dart';
 import 'package:ebook_project/components/app_layout.dart';
 import 'package:ebook_project/components/shimmer_list_loader.dart';
-import 'package:ebook_project/screens/ebook_contents.dart';
-import 'package:ebook_project/models/ebook_topic.dart';
 import 'package:ebook_project/models/ebook_subject.dart';
-import 'package:flutter/material.dart';
+import 'package:ebook_project/models/ebook_chapter.dart';
+import 'package:ebook_project/models/ebook_topic.dart';
+import 'package:ebook_project/screens/ebook_subjects.dart';
+import 'package:ebook_project/screens/ebook_chapters.dart';
+import 'package:ebook_project/screens/ebook_contents.dart';
 import 'package:ebook_project/utils/token_store.dart';
+import 'package:flutter/material.dart';
 import 'package:ebook_project/screens/practice/practice_questions.dart';
 
 import 'package:ebook_project/components/breadcrumb_bar.dart';
 import 'package:ebook_project/components/collapsible_sidebar.dart';
-import 'package:ebook_project/screens/ebook_chapters.dart';
+import 'package:ebook_project/theme/app_colors.dart';
+import 'package:ebook_project/theme/app_typography.dart';
 
 class EbookTopicsPage extends StatefulWidget {
   final String ebookId;
@@ -34,7 +38,7 @@ class EbookTopicsPage extends StatefulWidget {
   });
 
   @override
-  _EbookTopicsState createState() => _EbookTopicsState();
+  State<EbookTopicsPage> createState() => _EbookTopicsState();
 }
 
 class _EbookTopicsState extends State<EbookTopicsPage> {
@@ -54,22 +58,18 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
     fetchEbookTopics();
   }
 
-  bool _isLocked(dynamic v) => v == true || v == 1 || v == '1';
-
   Future<void> fetchSidebarSubjects() async {
     setState(() => sidebarLoading = true);
     try {
       final api = ApiService();
       var endpoint = "/v1/ebooks/${widget.ebookId}/subjects";
       if (widget.practice) endpoint += "?practice=1";
-      if (widget.practice) {
-        endpoint = await TokenStore.attachPracticeToken(endpoint);
-      }
+      endpoint = await TokenStore.attachPracticeToken(endpoint);
 
       final data = await api.fetchEbookData(endpoint);
       final list = (data['subjects'] as List? ?? [])
           .map((e) => EbookSubject.fromJson(e))
-          .where((s) => s.title.isNotEmpty)
+          .where((s) => s.title.trim().isNotEmpty)
           .toList();
 
       if (!mounted) return;
@@ -84,22 +84,26 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
   }
 
   Future<void> fetchEbookTopics() async {
-    final apiService = ApiService();
     try {
+      final api = ApiService();
       var endpoint =
           "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics";
       if (widget.practice) endpoint += "?practice=1";
-      if (widget.practice) {
-        endpoint = await TokenStore.attachPracticeToken(endpoint);
-      }
+      endpoint = await TokenStore.attachPracticeToken(endpoint);
 
-      final data = await apiService.fetchEbookData(endpoint);
+      final data = await api.fetchEbookData(endpoint);
+
+      if (!mounted) return;
       setState(() {
-        ebookTopics =
-            (data['topics'] as List).map((e) => EbookTopic.fromJson(e)).toList();
+        ebookTopics = (data['topics'] as List? ?? [])
+            .map((t) => EbookTopic.fromJson(t))
+            .where((t) => t.title.trim().isNotEmpty)
+            .toList();
         isLoading = false;
+        isError = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() {
         isLoading = false;
         isError = true;
@@ -109,135 +113,111 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
 
   String get _subjectTitleResolved {
     if (widget.subjectTitle.trim().isNotEmpty) return widget.subjectTitle.trim();
-    final hit =
-    sidebarSubjects.where((s) => s.id.toString() == widget.subjectId).toList();
-    if (hit.isNotEmpty) return hit.first.title;
-    return 'SUBJECT';
+    final hit = sidebarSubjects.where((s) => s.id.toString() == widget.subjectId);
+    return hit.isNotEmpty ? hit.first.title : 'SUBJECT';
   }
 
   String get _chapterTitleResolved =>
       widget.chapterTitle.trim().isNotEmpty ? widget.chapterTitle.trim() : 'CHAPTER';
 
-  // ✅ Tree children loader: Subject -> Chapters, Chapter -> Topics
   Future<List<SidebarItem>> _loadChildren(SidebarItem parent) async {
     final api = ApiService();
 
     if (parent.type == SidebarItemType.subject) {
-      final subjectId = parent.id;
-
       var endpoint =
-          "/v1/ebooks/${widget.ebookId}/subjects/$subjectId/chapters";
+          "/v1/ebooks/${widget.ebookId}/subjects/${parent.id}/chapters";
       if (widget.practice) endpoint += "?practice=1";
-      if (widget.practice) {
-        endpoint = await TokenStore.attachPracticeToken(endpoint);
-      }
+      endpoint = await TokenStore.attachPracticeToken(endpoint);
 
       final data = await api.fetchEbookData(endpoint);
-      final chapters = (data['chapters'] as List? ?? []);
+      final chapters = (data['chapters'] as List? ?? [])
+          .map((e) => EbookChapter.fromJson(e))
+          .where((c) => c.title.trim().isNotEmpty)
+          .toList();
 
       return chapters
-          .map<SidebarItem?>((c) {
-        final id = (c['id'] ?? '').toString();
-        final title = (c['title'] ?? c['name'] ?? '').toString();
-        final locked = _isLocked(c['locked']);
-        if (title.trim().isEmpty) return null;
-
-        return SidebarItem(
-          id: id,
-          title: title,
-          locked: locked,
+          .map<SidebarItem>(
+            (c) => SidebarItem(
+          id: c.id.toString(),
+          title: c.title,
+          locked: c.locked == true,
           type: SidebarItemType.chapter,
           hasChildren: true,
           meta: {
-            'subjectId': subjectId,
+            'subjectId': parent.id,
             'subjectTitle': parent.title,
           },
-        );
-      })
-          .whereType<SidebarItem>()
+        ),
+      )
           .toList();
     }
 
     if (parent.type == SidebarItemType.chapter) {
-      final subjectId = parent.meta['subjectId'] ?? '';
-      final chapterId = parent.id;
+      final subjectId = parent.meta['subjectId'] ?? widget.subjectId;
 
       var endpoint =
-          "/v1/ebooks/${widget.ebookId}/subjects/$subjectId/chapters/$chapterId/topics";
+          "/v1/ebooks/${widget.ebookId}/subjects/$subjectId/chapters/${parent.id}/topics";
       if (widget.practice) endpoint += "?practice=1";
-      if (widget.practice) {
-        endpoint = await TokenStore.attachPracticeToken(endpoint);
-      }
+      endpoint = await TokenStore.attachPracticeToken(endpoint);
 
       final data = await api.fetchEbookData(endpoint);
-      final topics = (data['topics'] as List? ?? []);
+      final topics = (data['topics'] as List? ?? [])
+          .map((e) => EbookTopic.fromJson(e))
+          .where((t) => t.title.trim().isNotEmpty)
+          .toList();
 
       return topics
-          .map<SidebarItem?>((t) {
-        final id = (t['id'] ?? '').toString();
-        final title = (t['title'] ?? t['name'] ?? '').toString();
-        final locked = _isLocked(t['locked']);
-        if (title.trim().isEmpty) return null;
-
-        return SidebarItem(
-          id: id,
-          title: title,
-          locked: locked,
+          .map<SidebarItem>(
+            (t) => SidebarItem(
+          id: t.id.toString(),
+          title: t.title,
+          locked: t.locked == true,
           type: SidebarItemType.topic,
           hasChildren: false,
           meta: {
             'subjectId': subjectId,
-            'chapterId': chapterId,
-            'subjectTitle': parent.meta['subjectTitle'] ?? '',
+            'subjectTitle': parent.meta['subjectTitle'] ?? _subjectTitleResolved,
+            'chapterId': parent.id,
             'chapterTitle': parent.title,
           },
-        );
-      })
-          .whereType<SidebarItem>()
+        ),
+      )
           .toList();
     }
 
-    return [];
+    return const <SidebarItem>[];
   }
 
-  void _handleSidebarTap(SidebarItem it) {
+  void _onSidebarTap(SidebarItem it) {
     if (it.locked) {
       _showSubscriptionDialog(context);
       return;
     }
-
     if (it.type != SidebarItemType.topic) return;
 
-    final subjectId = it.meta['subjectId'] ?? '';
-    final chapterId = it.meta['chapterId'] ?? '';
-    final topicId = it.id;
+    final subjectId = it.meta['subjectId'] ?? widget.subjectId;
+    final chapterId = it.meta['chapterId'] ?? widget.chapterId;
+    final subjectTitle = it.meta['subjectTitle'] ?? _subjectTitleResolved;
+    final chapterTitle = it.meta['chapterTitle'] ?? _chapterTitleResolved;
 
-    final subjectTitle = (it.meta['subjectTitle'] ?? _subjectTitleResolved).trim();
-    final chapterTitle = (it.meta['chapterTitle'] ?? _chapterTitleResolved).trim();
-    final topicTitle = it.title.trim();
-
-    final low = topicTitle.toLowerCase();
-    final isPracticeQuestions =
-    (low == 'practice questions' || low == 'practice question');
-
-    if (widget.practice && !isPracticeQuestions) {
-      _showSubscriptionDialog(context);
-      return;
-    }
-
-    if (isPracticeQuestions) {
-      Navigator.pushReplacement(
+    if (it.title.trim().toLowerCase() == 'practice questions') {
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => PracticeQuestionsPage(
             ebookId: widget.ebookId,
             subjectId: subjectId,
             chapterId: chapterId,
-            topicId: topicId,
+            topicId: it.id,
             ebookName: widget.ebookName,
           ),
         ),
       );
+      return;
+    }
+
+    if (widget.practice) {
+      _showSubscriptionDialog(context);
       return;
     }
 
@@ -248,11 +228,11 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
           ebookId: widget.ebookId,
           subjectId: subjectId,
           chapterId: chapterId,
-          topicId: topicId,
+          topicId: it.id,
           ebookName: widget.ebookName,
           subjectTitle: subjectTitle,
           chapterTitle: chapterTitle,
-          topicTitle: topicTitle,
+          topicTitle: it.title,
         ),
       ),
     );
@@ -261,15 +241,15 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
   @override
   Widget build(BuildContext context) {
     final List<SidebarItem> sidebarItems = sidebarSubjects
-        .where((s) => s.title.isNotEmpty)
-        .map<SidebarItem>((s) => SidebarItem(
-      id: s.id.toString(),
-      title: s.title,
-      locked: s.locked == true,
-      type: SidebarItemType.subject,
-      hasChildren: true,
-      meta: {'subjectTitle': s.title},
-    ))
+        .map<SidebarItem>(
+          (s) => SidebarItem(
+        id: s.id.toString(),
+        title: s.title,
+        locked: s.locked == true,
+        type: SidebarItemType.subject,
+        hasChildren: true,
+      ),
+    )
         .toList();
 
     return AppLayout(
@@ -278,24 +258,36 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
         children: [
           isLoading
               ? const Padding(
-            padding: EdgeInsets.all(12.0),
+            padding: EdgeInsets.all(12),
             child: ShimmerListLoader(),
           )
               : isError
               ? const Center(child: Text('Failed to load topics'))
               : Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(12),
             child: Column(
               children: [
                 BreadcrumbBar(
                   items: [
+                    'SUBJECTS',
                     _subjectTitleResolved.toUpperCase(),
                     _chapterTitleResolved.toUpperCase(),
                   ],
                   onHome: () => Navigator.pop(context),
-                  onTapCrumb: (i) {
-                    if (i == 0) {
-                      // subject click => Chapters page for this subject
+                  onItemTap: [
+                        () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EbookSubjectsPage(
+                            ebookId: widget.ebookId,
+                            ebookName: widget.ebookName,
+                            practice: widget.practice,
+                          ),
+                        ),
+                      );
+                    },
+                        () {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
@@ -308,69 +300,47 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
                           ),
                         ),
                       );
-                    }
-                    if (i == 1) {
-                      // chapter click => same TopicsPage (nothing) or you can do popUntil etc.
-                      // Usually do nothing
-                    }
-                  },
+                    },
+                    null,
+                  ],
                 ),
-
                 Expanded(
                   child: ebookTopics.isEmpty
-                      ? const Center(
-                    child: Text(
-                      'No Topics Available',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  )
+                      ? const Center(child: Text('No Topics Available'))
                       : GridView.builder(
                     gridDelegate:
                     const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      childAspectRatio: 1.15,
+                      childAspectRatio: 1.25,
                     ),
                     itemCount: ebookTopics.length,
                     itemBuilder: (context, index) {
                       final topic = ebookTopics[index];
-                      if (topic.title.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
 
                       return _GridCard(
                         title: topic.title,
-                        locked: topic.locked,
+                        locked: topic.locked == true,
                         icon: Icons.description,
                         onTap: () {
-                          if (topic.locked) {
+                          if (topic.locked == true) {
                             _showSubscriptionDialog(context);
                             return;
                           }
 
-                          final low = topic.title
-                              .trim()
-                              .toLowerCase();
-                          final isPracticeQuestions =
-                          (low == 'practice questions' ||
-                              low == 'practice question');
-
-                          if (isPracticeQuestions) {
+                          if (topic.title.trim().toLowerCase() ==
+                              'practice questions') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    PracticeQuestionsPage(
-                                      ebookId: widget.ebookId,
-                                      subjectId: widget.subjectId,
-                                      chapterId: widget.chapterId,
-                                      topicId: topic.id.toString(),
-                                      ebookName: widget.ebookName,
-                                    ),
+                                builder: (_) => PracticeQuestionsPage(
+                                  ebookId: widget.ebookId,
+                                  subjectId: widget.subjectId,
+                                  chapterId: widget.chapterId,
+                                  topicId: topic.id.toString(),
+                                  ebookName: widget.ebookName,
+                                ),
                               ),
                             );
                             return;
@@ -390,10 +360,8 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
                                 chapterId: widget.chapterId,
                                 topicId: topic.id.toString(),
                                 ebookName: widget.ebookName,
-                                subjectTitle:
-                                _subjectTitleResolved,
-                                chapterTitle:
-                                _chapterTitleResolved,
+                                subjectTitle: _subjectTitleResolved,
+                                chapterTitle: _chapterTitleResolved,
                                 topicTitle: topic.title,
                               ),
                             ),
@@ -407,19 +375,18 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
             ),
           ),
 
-          SidebarFloatingButton(
-              onTap: () => setState(() => sidebarOpen = true)),
+          SidebarFloatingButton(onTap: () => setState(() => sidebarOpen = true)),
 
           CollapsibleSidebar(
             open: sidebarOpen,
             onClose: () => setState(() => sidebarOpen = false),
             headerTitle: 'Subjects',
             items: sidebarItems,
-            selectedId: widget.subjectId,
+            selectedKey: 'c:${widget.chapterId}',
             loadChildren: _loadChildren,
             onTap: (it) {
               setState(() => sidebarOpen = false);
-              _handleSidebarTap(it);
+              _onSidebarTap(it);
             },
           ),
 
@@ -475,37 +442,32 @@ class _GridCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFFBEAEC),
+          color: AppColors.gridCardBg,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: AppColors.cardBorder),
           boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+            BoxShadow(color: AppColors.shadowSm, blurRadius: 6, offset: Offset(0, 2)),
           ],
         ),
         padding: const EdgeInsets.all(12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 28, color: const Color(0xFF0c4a6e)),
-            const SizedBox(height: 6),
-            Flexible(
+            Icon(icon, size: 30, color: AppColors.blue900),
+            const SizedBox(height: 8),
+            Expanded(
               child: Center(
                 child: Text(
                   title.toUpperCase(),
                   textAlign: TextAlign.center,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF0f172a),
-                    height: 1.12,
-                    fontSize: 12,
-                  ),
+                  style: AppTypography.gridCardTitle,
                 ),
               ),
             ),
             if (locked) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               const Icon(Icons.lock, color: Colors.redAccent, size: 18),
             ],
           ],

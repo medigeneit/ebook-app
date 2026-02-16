@@ -189,53 +189,62 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
   }
 
   void _onSidebarTap(SidebarItem it) {
+    // locked হলে তোমার subscription dialog
     if (it.locked) {
       _showSubscriptionDialog(context);
       return;
     }
-    if (it.type != SidebarItemType.topic) return;
 
-    final subjectId = it.meta['subjectId'] ?? widget.subjectId;
-    final chapterId = it.meta['chapterId'] ?? widget.chapterId;
-    final subjectTitle = it.meta['subjectTitle'] ?? _subjectTitleResolved;
-    final chapterTitle = it.meta['chapterTitle'] ?? _chapterTitleResolved;
+    // ✅ TOPIC click => direct CONTENTS page
+    if (it.type == SidebarItemType.topic) {
+      final subjectId = it.meta["subjectId"] ?? "";
+      final chapterId = it.meta["chapterId"] ?? "";
+      final topicId = it.id;
 
-    if (it.title.trim().toLowerCase() == 'practice questions') {
-      Navigator.push(
+      // Practice Questions special case (চাইলে)
+      if (it.title.trim().toLowerCase() == "practice questions") {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PracticeQuestionsPage(
+              ebookId: widget.ebookId,
+              subjectId: subjectId,
+              chapterId: chapterId,
+              topicId: topicId,
+              ebookName: widget.ebookName,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // practice mode হলে content না খুলে dialog (আগের নিয়ম)
+      if (widget.practice == true) {
+        _showSubscriptionDialog(context);
+        return;
+      }
+
+      // ✅ contents page (same page হলে pushReplacement better)
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => PracticeQuestionsPage(
+          builder: (_) => EbookContentsPage(
             ebookId: widget.ebookId,
             subjectId: subjectId,
             chapterId: chapterId,
-            topicId: it.id,
+            topicId: topicId,
             ebookName: widget.ebookName,
+            subjectTitle: it.meta["subjectTitle"] ?? "",
+            chapterTitle: it.meta["chapterTitle"] ?? "",
+            topicTitle: it.title,
           ),
         ),
       );
+
       return;
     }
 
-    if (widget.practice) {
-      _showSubscriptionDialog(context);
-      return;
-    }
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EbookContentsPage(
-          ebookId: widget.ebookId,
-          subjectId: subjectId,
-          chapterId: chapterId,
-          topicId: it.id,
-          ebookName: widget.ebookName,
-          subjectTitle: subjectTitle,
-          chapterTitle: chapterTitle,
-          topicTitle: it.title,
-        ),
-      ),
-    );
+    // subject/chapter locked হলে আগে থেকেই _toggleExpand এ onTap call হতে পারে
   }
 
   @override

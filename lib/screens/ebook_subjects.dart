@@ -3,11 +3,14 @@ import 'package:ebook_project/components/app_layout.dart';
 import 'package:ebook_project/components/shimmer_list_loader.dart';
 import 'package:ebook_project/screens/ebook_chapters.dart';
 import 'package:ebook_project/models/ebook_subject.dart';
+import 'package:ebook_project/screens/practice/practice_questions.dart';
 import 'package:flutter/material.dart';
 
 import 'package:ebook_project/components/breadcrumb_bar.dart';
 import 'package:ebook_project/components/collapsible_sidebar.dart';
 import 'package:ebook_project/utils/token_store.dart';
+
+import 'ebook_contents.dart';
 
 class EbookSubjectsPage extends StatefulWidget {
   final String ebookId;
@@ -133,30 +136,62 @@ class _EbookSubjectsPageState extends State<EbookSubjectsPage> {
   }
 
   void _onSidebarTap(SidebarItem it) {
-    // locked parent click => তোমার dialog
+    // locked হলে তোমার subscription dialog
     if (it.locked) {
       _showSubscriptionDialog(context);
       return;
     }
 
-    if (it.type == SidebarItemType.subject) {
-      Navigator.push(
+    // ✅ TOPIC click => direct CONTENTS page
+    if (it.type == SidebarItemType.topic) {
+      final subjectId = it.meta["subjectId"] ?? "";
+      final chapterId = it.meta["chapterId"] ?? "";
+      final topicId = it.id;
+
+      // Practice Questions special case (চাইলে)
+      if (it.title.trim().toLowerCase() == "practice questions") {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PracticeQuestionsPage(
+              ebookId: widget.ebookId,
+              subjectId: subjectId,
+              chapterId: chapterId,
+              topicId: topicId,
+              ebookName: widget.ebookName,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // practice mode হলে content না খুলে dialog (আগের নিয়ম)
+      if (widget.practice == true) {
+        _showSubscriptionDialog(context);
+        return;
+      }
+
+      // ✅ contents page (same page হলে pushReplacement better)
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => EbookChaptersPage(
+          builder: (_) => EbookContentsPage(
             ebookId: widget.ebookId,
-            subjectId: it.id,
+            subjectId: subjectId,
+            chapterId: chapterId,
+            topicId: topicId,
             ebookName: widget.ebookName,
-            practice: widget.practice,
-            subjectTitle: it.title,
+            subjectTitle: it.meta["subjectTitle"] ?? "",
+            chapterTitle: it.meta["chapterTitle"] ?? "",
+            topicTitle: it.title,
           ),
         ),
       );
+
       return;
     }
 
-    // chapter/topic এখানে direct open না করলেও সমস্যা নাই
-    // (topic click করলে TopicsPage/ContentsPage তোমার topics/contents ফাইলে হ্যান্ডেল হবে)
+    // subject/chapter locked হলে আগে থেকেই _toggleExpand এ onTap call হতে পারে
   }
 
   @override

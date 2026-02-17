@@ -259,6 +259,7 @@ class _EbookChaptersState extends State<EbookChaptersPage> {
 
     return AppLayout(
       title: '${widget.ebookName} Chapters',
+      bodyPadding: EdgeInsets.zero,
       body: Stack(
         children: [
           isLoading

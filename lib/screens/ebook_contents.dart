@@ -350,6 +350,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
 
     return AppLayout(
       title: '${widget.ebookName} Questions',
+      bodyPadding: EdgeInsets.zero,
       body: Stack(
         children: [
           // ---- main content ----

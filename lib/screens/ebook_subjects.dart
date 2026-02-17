@@ -210,6 +210,7 @@ class _EbookSubjectsPageState extends State<EbookSubjectsPage> {
 
     return AppLayout(
       title: '${widget.ebookName} Subjects',
+      bodyPadding: EdgeInsets.zero,
       body: Stack(
         children: [
           isLoading

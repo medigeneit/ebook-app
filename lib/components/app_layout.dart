@@ -55,6 +55,7 @@ class AppLayout extends StatelessWidget {
   final Widget body;
   final bool showDrawer;
   final bool showNavBar;
+  final EdgeInsetsGeometry bodyPadding;
 
   const AppLayout({
     super.key,
@@ -62,6 +63,7 @@ class AppLayout extends StatelessWidget {
     required this.body,
     this.showDrawer = true,
     this.showNavBar = true,
+    this.bodyPadding = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
   });
 
   @override
@@ -120,7 +122,8 @@ class AppLayout extends StatelessWidget {
             child: Container(
               width: double.infinity,
               height: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              // padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: bodyPadding,
               child: body,
             ),
           ),

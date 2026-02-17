@@ -263,6 +263,7 @@ class _EbookTopicsState extends State<EbookTopicsPage> {
 
     return AppLayout(
       title: '${widget.ebookName} Topics',
+      bodyPadding: EdgeInsets.zero,
       body: Stack(
         children: [
           isLoading

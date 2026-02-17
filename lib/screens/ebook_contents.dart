@@ -21,6 +21,7 @@ import 'package:ebook_project/screens/ebook_subjects.dart';
 import 'package:ebook_project/screens/ebook_chapters.dart';
 import 'package:ebook_project/screens/ebook_topics.dart';
 import 'package:ebook_project/screens/practice/practice_questions.dart';
+import 'package:ebook_project/models/note_item.dart';
 
 class EbookContentsPage extends StatefulWidget {
   final String ebookId;
@@ -72,10 +73,13 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   bool showVideoModal = false;
   String referenceContent = '';
   bool showReferenceModal = false;
-  final Map<int, String> notes = {};
-  bool showNoteModal = false;
+
+  // NOTE state
   int? activeNoteContentId;
   final TextEditingController noteController = TextEditingController();
+  List<NoteItem> noteList = [];
+  bool noteLoading = false;
+  int? editingNoteId; // null => create, else edit
 
   @override
   void initState() {
@@ -139,6 +143,476 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     }
   }
 
+  // ---------------- NOTE API helpers ----------------
+  String _noteBase(int contentId) {
+    return "/v1/ebooks/${widget.ebookId}"
+        "/subjects/${widget.subjectId}"
+        "/chapters/${widget.chapterId}"
+        "/topics/${widget.topicId}"
+        "/contents/$contentId";
+  }
+
+  String _formatDate(DateTime? dt) {
+    if (dt == null) return '';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final d = dt.toLocal();
+    final day = d.day.toString().padLeft(2, '0');
+    final mon = months[d.month - 1];
+    return "$day $mon ${d.year}";
+  }
+
+  Future<void> _fetchNotes(int contentId) async {
+    noteLoading = true;
+    if (mounted) setState(() {});
+
+    try {
+      final api = ApiService();
+      final endpoint = "${_noteBase(contentId)}/notes";
+      final data = await api.fetchEbookData(endpoint);
+
+      final list = (data['notes'] as List? ?? [])
+          .map((e) => NoteItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      noteList = list;
+      noteLoading = false;
+      if (mounted) setState(() {});
+    } catch (_) {
+      noteLoading = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _saveOrUpdateNote() async {
+    final contentId = activeNoteContentId;
+    if (contentId == null) return;
+
+    final text = noteController.text.trim();
+    if (text.isEmpty) return;
+
+    noteLoading = true;
+    if (mounted) setState(() {});
+
+    final api = ApiService();
+
+    try {
+      if (editingNoteId == null) {
+        final endpoint = "${_noteBase(contentId)}/save";
+        await api.postData(endpoint, {'text': text});
+      } else {
+        final endpoint = "${_noteBase(contentId)}/notes/$editingNoteId/edit";
+        await api.postData(endpoint, {'text': text});
+      }
+
+      await _fetchNotes(contentId);
+
+      editingNoteId = null;
+      noteController.clear();
+      noteLoading = false;
+      if (mounted) setState(() {});
+    } catch (_) {
+      noteLoading = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _deleteNote(int noteId) async {
+    final contentId = activeNoteContentId;
+    if (contentId == null) return;
+
+    noteLoading = true;
+    if (mounted) setState(() {});
+
+    try {
+      final api = ApiService();
+      final endpoint = "${_noteBase(contentId)}/notes/$noteId/delete";
+      await api.deleteData(endpoint);
+
+      await _fetchNotes(contentId);
+
+      noteLoading = false;
+      if (mounted) setState(() {});
+    } catch (_) {
+      noteLoading = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _startEdit(NoteItem note) {
+    editingNoteId = note.id;
+    noteController.text = note.noteDetail;
+    if (mounted) setState(() {});
+  }
+
+  // ---------------- NOTE BottomSheet (App friendly) ----------------
+  void _showNoteSheet(int contentId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (_) {
+        // ✅ BottomSheet local states
+        bool sheetLoading = true;
+        List<NoteItem> sheetNotes = [];
+        int? sheetEditingId;
+        final sheetController = noteController;
+
+        // reset controller for new content
+        sheetController.clear();
+
+        Future<void> sheetFetch() async {
+          sheetLoading = true;
+
+          try {
+            final api = ApiService();
+            final endpoint = "${_noteBase(contentId)}/notes";
+            final data = await api.fetchEbookData(endpoint);
+
+            sheetNotes = (data['notes'] as List? ?? [])
+                .map((e) => NoteItem.fromJson(e as Map<String, dynamic>))
+                .toList();
+
+            sheetLoading = false;
+          } catch (_) {
+            sheetLoading = false;
+            // চাইলে এখানে snack দেখাতে পারেন
+          }
+        }
+
+        Future<void> sheetSave(StateSetter sheetSetState) async {
+          final text = sheetController.text.trim();
+          if (text.isEmpty) return;
+
+          sheetSetState(() => sheetLoading = true);
+
+          try {
+            final api = ApiService();
+
+            if (sheetEditingId == null) {
+              // create
+              final endpoint = "${_noteBase(contentId)}/save";
+              await api.postData(endpoint, {'text': text});
+            } else {
+              // edit
+              final endpoint = "${_noteBase(contentId)}/notes/$sheetEditingId/edit";
+              await api.postData(endpoint, {'text': text});
+            }
+
+            // refresh list
+            await sheetFetch();
+
+            sheetEditingId = null;
+            sheetController.clear();
+
+            sheetSetState(() {});
+          } catch (_) {
+            sheetSetState(() => sheetLoading = false);
+          }
+        }
+
+        Future<void> sheetDelete(int noteId, StateSetter sheetSetState) async {
+          sheetSetState(() => sheetLoading = true);
+          try {
+            final api = ApiService();
+            final endpoint = "${_noteBase(contentId)}/notes/$noteId/delete";
+            await api.deleteData(endpoint);
+
+            await sheetFetch();
+            sheetSetState(() {});
+          } catch (_) {
+            sheetSetState(() => sheetLoading = false);
+          }
+        }
+
+        // ✅ init fetch exactly once
+        bool inited = false;
+
+        return StatefulBuilder(
+          builder: (sheetCtx, sheetSetState) {
+            if (!inited) {
+              inited = true;
+              Future.microtask(() async {
+                await sheetFetch();
+                if (Navigator.of(sheetCtx).canPop()) {
+                  sheetSetState(() {});
+                }
+              });
+            }
+
+            final canSave = !sheetLoading && sheetController.text.trim().isNotEmpty;
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.78,
+              minChildSize: 0.55,
+              maxChildSize: 0.92,
+              builder: (context, scrollController) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                  ),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      Container(
+                        width: 42,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.black12,
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Note',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () => Navigator.pop(sheetCtx),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+
+                      Expanded(
+                        child: ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                          children: [
+                            if (sheetEditingId != null)
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                margin: const EdgeInsets.only(bottom: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.edit, size: 18, color: Colors.blue),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        'Editing note…',
+                                        style: TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        sheetEditingId = null;
+                                        sheetController.clear();
+                                        sheetSetState(() {});
+                                      },
+                                      child: const Text('Cancel'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            TextField(
+                              controller: sheetController,
+                              minLines: 3,
+                              maxLines: 5,
+                              onChanged: (_) => sheetSetState(() {}), // ✅ enable Save immediately
+                              decoration: InputDecoration(
+                                hintText: 'Write Your Note Here ...',
+                                filled: true,
+                                fillColor: const Color(0xFFF6F7FB),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.all(12),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            SizedBox(
+                              height: 46,
+                              child: ElevatedButton(
+                                onPressed: canSave ? () => sheetSave(sheetSetState) : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0B7A2E),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Text(
+                                  sheetEditingId == null ? 'Save' : 'Update',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 14),
+
+                            Row(
+                              children: [
+                                Text(
+                                  'Note List: ${sheetNotes.length}',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                                ),
+                                const Spacer(),
+                                if (!sheetLoading && sheetNotes.isNotEmpty)
+                                  Text(
+                                    'Scroll ↓',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  )
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+
+                            if (sheetLoading)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 28),
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            else if (sheetNotes.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 22),
+                                child: Center(
+                                  child: Text(
+                                    'No notes yet',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else
+                              ...sheetNotes.map((n) {
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: const Color(0xFFEDEFF5)),
+                                    boxShadow: const [
+                                      BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _formatDate(n.createdAt),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        n.noteDetail,
+                                        style: const TextStyle(fontSize: 15, height: 1.35),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          InkWell(
+                                            onTap: () {
+                                              sheetEditingId = n.id;
+                                              sheetController.text = n.noteDetail;
+                                              sheetSetState(() {});
+                                            },
+                                            borderRadius: BorderRadius.circular(10),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue.withOpacity(0.10),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: const Icon(Icons.edit, size: 18, color: Colors.blue),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          InkWell(
+                                            onTap: () => sheetDelete(n.id, sheetSetState),
+                                            borderRadius: BorderRadius.circular(10),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.withOpacity(0.10),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: const Icon(Icons.delete, size: 18, color: Colors.red),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+
+                            const SizedBox(height: 70),
+                          ],
+                        ),
+                      ),
+
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black12, blurRadius: 14, offset: Offset(0, -2))
+                          ],
+                        ),
+                        child: SizedBox(
+                          height: 46,
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(sheetCtx),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE53935),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Close',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+  // ---------------- Sidebar titles ----------------
   String get _subjectTitleResolved {
     if (widget.subjectTitle.trim().isNotEmpty) return widget.subjectTitle.trim();
     final hit = sidebarSubjects.where((s) => s.id.toString() == widget.subjectId);
@@ -156,8 +630,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     final api = ApiService();
 
     if (parent.type == SidebarItemType.subject) {
-      var endpoint =
-          "/v1/ebooks/${widget.ebookId}/subjects/${parent.id}/chapters";
+      var endpoint = "/v1/ebooks/${widget.ebookId}/subjects/${parent.id}/chapters";
       endpoint = await TokenStore.attachPracticeToken(endpoint);
 
       final data = await api.fetchEbookData(endpoint);
@@ -216,16 +689,13 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   }
 
   void _onSidebarTap(SidebarItem it) {
-    // locked হলে তোমার subscription dialog
     if (it.locked) return;
 
-    // ✅ TOPIC click => direct CONTENTS page
     if (it.type == SidebarItemType.topic) {
       final subjectId = it.meta["subjectId"] ?? "";
       final chapterId = it.meta["chapterId"] ?? "";
       final topicId = it.id;
 
-      // Practice Questions special case (চাইলে)
       if (it.title.trim().toLowerCase() == "practice questions") {
         Navigator.push(
           context,
@@ -242,8 +712,6 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
         return;
       }
 
-
-      // ✅ contents page (same page হলে pushReplacement better)
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -259,11 +727,8 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           ),
         ),
       );
-
       return;
     }
-
-    // subject/chapter locked হলে আগে থেকেই _toggleExpand এ onTap call হতে পারে
   }
 
   // ---------- Existing modal fetch ----------
@@ -283,8 +748,9 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() => showModalLoader = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Failed to load discussion")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to load discussion")),
+      );
     }
   }
 
@@ -333,8 +799,9 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() => showModalLoader = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Failed to load references")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to load references")),
+      );
     }
   }
 
@@ -449,15 +916,10 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                       onTapVideo: content.hasSolveVideo
                           ? () => fetchSolveVideos(content.id.toString())
                           : null,
-                      onTapNote: content.hasNote
-                          ? () {
-                        setState(() {
-                          activeNoteContentId = content.id;
-                          noteController.text = notes[content.id] ?? '';
-                          showNoteModal = true;
-                        });
-                      }
-                          : null,
+
+                      // ✅ NOTE: app friendly bottom sheet
+                      onTapNote: () => _showNoteSheet(content.id),
+
                       onChooseTF: (optionId, label) {
                         setState(() {
                           final sel = selectedAnswers[optionId];
@@ -467,7 +929,8 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                       onChooseSBA: (contentId, slNo) {
                         setState(() {
                           final sel = selectedSBAAnswers[contentId];
-                          selectedSBAAnswers[contentId] = (sel == slNo) ? '' : slNo;
+                          selectedSBAAnswers[contentId] =
+                          (sel == slNo) ? '' : slNo;
                         });
                       },
                     );
@@ -497,9 +960,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           AppModal(
             title: 'Discussion',
             onClose: () => setState(() => showDiscussionModal = false),
-            child: SingleChildScrollView(
-              child: Html(data: discussionContent),
-            ),
+            child: SingleChildScrollView(child: Html(data: discussionContent)),
           ),
 
         if (showVideoModal)
@@ -539,43 +1000,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           AppModal(
             title: 'Reference',
             onClose: () => setState(() => showReferenceModal = false),
-            child: SingleChildScrollView(
-              child: Html(data: referenceContent),
-            ),
-          ),
-
-        if (showNoteModal)
-          AppModal(
-            title: 'Note',
-            onClose: () => setState(() => showNoteModal = false),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: noteController,
-                  maxLines: 8,
-                  decoration: const InputDecoration(
-                    hintText: 'Write your note here',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: () {
-                    final id = activeNoteContentId;
-                    if (id != null) {
-                      setState(() {
-                        notes[id] = noteController.text.trim();
-                        showNoteModal = false;
-                      });
-                    } else {
-                      setState(() => showNoteModal = false);
-                    }
-                  },
-                  child: const Text('Save Note'),
-                ),
-              ],
-            ),
+            child: SingleChildScrollView(child: Html(data: referenceContent)),
           ),
 
         if (showModalLoader) const AppModalLoader(),

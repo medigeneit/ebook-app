@@ -397,6 +397,42 @@ class ApiService {
     return ua;
   }
 
+  // -------------------------
+  // DELETE JSON (Map?)
+  // -------------------------
+  Future<Map<String, dynamic>?> deleteData(String endpoint) async {
+    final headers = await _authHeaders();
+    final uri = getFullUrl(endpoint);
+
+    http.Response response;
+    try {
+      response = await _client.delete(uri, headers: headers).timeout(_timeout);
+    } on TimeoutException {
+      return {'error': 1, 'message': 'Network timeout. আবার চেষ্টা করুন।'};
+    } catch (e) {
+      return {'error': 1, 'message': 'Network Error: $e'};
+    }
+
+    final text = utf8.decode(response.bodyBytes);
+
+    if (response.statusCode == 401) {
+      await _handleUnauthenticated();
+      return {'error': 1, 'message': 'Unauthenticated.'};
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      try {
+        final decoded = _decodeJson(text);
+        return _asMap(decoded);
+      } catch (e) {
+        return {'error': 1, 'message': 'Invalid JSON response: $e'};
+      }
+    }
+
+    return {'error': 1, 'message': 'Server Error: ${response.statusCode}'};
+  }
+
+
   String _deviceType() {
     if (Platform.isAndroid) return 'Android';
     if (Platform.isIOS) return 'Ios';

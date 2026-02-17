@@ -73,6 +73,14 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   List<Map<String, dynamic>> solveVideos = [];
   bool showVideoModal = false;
 
+  // bookmark/flag state
+  final Map<int, bool> bookmarked = {}; // contentId -> bool
+  final Map<int, bool> flagged = {};    // contentId -> bool
+
+  final Set<int> bookmarkBusy = {}; // contentId busy
+  final Set<int> flagBusy = {};
+
+
   @override
   void initState() {
     super.initState();
@@ -120,6 +128,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
         isLoading = false;
         isError = false;
       });
+      _prefetchBookmarkFlag(ebookContents);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -137,6 +146,139 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
         "/topics/${widget.topicId}"
         "/contents/$contentId";
   }
+
+  String _bookmarkPath(int contentId) {
+    return "/v1/ebooks/${widget.ebookId}"
+        "/subjects/${widget.subjectId}"
+        "/chapters/${widget.chapterId}"
+        "/topics/${widget.topicId}"
+        "/contents/$contentId/bookmark";
+  }
+
+  String _flagPath(int contentId) {
+    return "/v1/ebooks/${widget.ebookId}"
+        "/subjects/${widget.subjectId}"
+        "/chapters/${widget.chapterId}"
+        "/topics/${widget.topicId}"
+        "/contents/$contentId/flag";
+  }
+
+  Future<bool?> _getBookmark(ApiService api, int contentId) async {
+    try {
+      var ep = _bookmarkPath(contentId);
+      ep = await TokenStore.attachPracticeToken(ep);
+      final data = await api.fetchEbookData(ep);
+      return data['is_bookmarked'] == true;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool?> _getFlag(ApiService api, int contentId) async {
+    try {
+      var ep = _flagPath(contentId);
+      ep = await TokenStore.attachPracticeToken(ep);
+      final data = await api.fetchEbookData(ep);
+      return data['is_flagged'] == true;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _prefetchBookmarkFlag(List<EbookContent> list) async {
+    final api = ApiService();
+    final ids = list.take(20).map((e) => e.id).toList();
+
+    final bm = <int, bool>{};
+    final fl = <int, bool>{};
+
+    for (final id in ids) {
+      final b = await _getBookmark(api, id);
+      if (b != null) bm[id] = b;
+
+      final f = await _getFlag(api, id);
+      if (f != null) fl[id] = f;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      bookmarked.addAll(bm);
+      flagged.addAll(fl);
+    });
+  }
+  Future<void> toggleBookmark(int contentId) async {
+    if (bookmarkBusy.contains(contentId)) return;
+
+    final prev = bookmarked[contentId] ?? false;
+
+    setState(() {
+      bookmarkBusy.add(contentId);
+      bookmarked[contentId] = !prev; // optimistic
+    });
+
+    try {
+      final api = ApiService();
+      var ep = _bookmarkPath(contentId);
+      ep = await TokenStore.attachPracticeToken(ep);
+
+      final res = await api.postData(ep, {}); // empty body ok
+      if (res == null || res['error'] == 1) {
+        throw ApiException((res?['message'] ?? 'Bookmark failed').toString());
+      }
+
+      final serverVal = res['is_bookmarked'] == true;
+
+      if (!mounted) return;
+      setState(() => bookmarked[contentId] = serverVal);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => bookmarked[contentId] = prev);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() => bookmarkBusy.remove(contentId));
+    }
+  }
+
+  Future<void> toggleFlag(int contentId) async {
+    if (flagBusy.contains(contentId)) return;
+
+    final prev = flagged[contentId] ?? false;
+
+    setState(() {
+      flagBusy.add(contentId);
+      flagged[contentId] = !prev; // optimistic
+    });
+
+    try {
+      final api = ApiService();
+      var ep = _flagPath(contentId);
+      ep = await TokenStore.attachPracticeToken(ep);
+
+      final res = await api.postData(ep, {});
+      if (res == null || res['error'] == 1) {
+        throw ApiException((res?['message'] ?? 'Flag failed').toString());
+      }
+
+      final serverVal = res['is_flagged'] == true;
+
+      if (!mounted) return;
+      setState(() => flagged[contentId] = serverVal);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => flagged[contentId] = prev);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() => flagBusy.remove(contentId));
+    }
+  }
+
+
 
   // resolved titles
   String get _subjectTitleResolved {
@@ -382,6 +524,12 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                   selectedSBA: selectedSBAAnswers,
                   showCorrect: showCorrect,
                   noteBasePath: _noteBase,
+                  bookmarked: bookmarked,
+                  flagged: flagged,
+                  bookmarkBusy: bookmarkBusy,
+                  flagBusy: flagBusy,
+                  onTapBookmark: (cid) => () => toggleBookmark(cid),
+                  onTapFlag: (cid) => () => toggleFlag(cid),
                   onToggleAnswer: (cid) => () {
                     setState(() {
                       showCorrect.contains(cid)

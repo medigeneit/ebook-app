@@ -15,12 +15,18 @@ class EbookContentsBody extends StatelessWidget {
   final VoidCallback Function(int contentId)? onTapReference;
   final VoidCallback Function(int contentId)? onTapVideo;
 
-  // Note basePath builder
   final String Function(int contentId) noteBasePath;
 
-  // choose actions
   final void Function(int optionId, String label) onChooseTF;
   final void Function(int contentId, String slNo) onChooseSBA;
+
+  // ✅ new
+  final Map<int, bool> bookmarked;
+  final Map<int, bool> flagged;
+  final Set<int> bookmarkBusy;
+  final Set<int> flagBusy;
+  final VoidCallback Function(int contentId) onTapBookmark;
+  final VoidCallback Function(int contentId) onTapFlag;
 
   const EbookContentsBody({
     super.key,
@@ -31,6 +37,12 @@ class EbookContentsBody extends StatelessWidget {
     required this.noteBasePath,
     required this.onChooseTF,
     required this.onChooseSBA,
+    required this.bookmarked,
+    required this.flagged,
+    required this.bookmarkBusy,
+    required this.flagBusy,
+    required this.onTapBookmark,
+    required this.onTapFlag,
     this.onToggleAnswer,
     this.onTapDiscussion,
     this.onTapReference,
@@ -45,12 +57,22 @@ class EbookContentsBody extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final content = contents[index];
+        final isBookmarked = bookmarked[content.id] ?? false;
+        final isFlagged = flagged[content.id] ?? false;
 
         return ContentCard(
           content: content,
           showCorrect: showCorrect.contains(content.id),
           selectedTF: selectedTF,
           selectedSBA: selectedSBA,
+
+          // ✅ header icons
+          isBookmarked: isBookmarked,
+          isFlagged: isFlagged,
+          bookmarkLoading: bookmarkBusy.contains(content.id),
+          flagLoading: flagBusy.contains(content.id),
+          onTapBookmark: onTapBookmark(content.id),
+          onTapFlag: onTapFlag(content.id),
 
           onToggleAnswer: () => onToggleAnswer?.call(content.id)(),
 
@@ -64,7 +86,6 @@ class EbookContentsBody extends StatelessWidget {
               ? () => onTapVideo?.call(content.id)()
               : null,
 
-          // ✅ Note bottom sheet component
           onTapNote: () => NoteBottomSheet.open(
             context: context,
             basePath: noteBasePath(content.id),

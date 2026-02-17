@@ -213,6 +213,12 @@ class _PracticeQuestionsPageState extends State<PracticeQuestionsPage> {
                                   (sel == slNo) ? '' : slNo;
                             });
                           },
+                          isBookmarked: false,
+                          isFlagged: false,
+                          bookmarkLoading: false,
+                          flagLoading: false,
+                          onTapBookmark: (){},
+                          onTapFlag: (){},
                         );
                       },
                     ),

@@ -8,8 +8,8 @@ import '../../presentation/screens/question_page_with_zoom.dart';
 class ContentCard extends StatelessWidget {
   final EbookContent content;
   final bool showCorrect;
-  final Map<int, String> selectedTF;   // optionId : 'T'|'F'
-  final Map<int, String> selectedSBA;  // contentId : slNo
+  final Map<int, String> selectedTF;
+  final Map<int, String> selectedSBA;
 
   final VoidCallback onToggleAnswer;
   final VoidCallback? onTapDiscussion;
@@ -20,6 +20,14 @@ class ContentCard extends StatelessWidget {
   final void Function(int optionId, String label) onChooseTF;
   final void Function(int contentId, String slNo) onChooseSBA;
 
+  // ✅ new
+  final bool isBookmarked;
+  final bool isFlagged;
+  final bool bookmarkLoading;
+  final bool flagLoading;
+  final VoidCallback? onTapBookmark;
+  final VoidCallback? onTapFlag;
+
   const ContentCard({
     super.key,
     required this.content,
@@ -29,6 +37,12 @@ class ContentCard extends StatelessWidget {
     required this.onToggleAnswer,
     required this.onChooseTF,
     required this.onChooseSBA,
+    required this.isBookmarked,
+    required this.isFlagged,
+    required this.bookmarkLoading,
+    required this.flagLoading,
+    this.onTapBookmark,
+    this.onTapFlag,
     this.onTapDiscussion,
     this.onTapReference,
     this.onTapVideo,
@@ -37,23 +51,81 @@ class ContentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleWidget = (content.type == 3)
+        ? _ImageFromHtml(htmlString: content.title)
+        : Html(
+      data: "<b>${content.title}</b>",
+      style: {
+        "b": Style(
+          fontSize: FontSize(14.5),
+          lineHeight: LineHeight.number(1.45),
+        )
+      },
+    );
+
+    final headerIcons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _HeaderIcon(
+          loading: bookmarkLoading,
+          icon: isBookmarked ? Icons.star : Icons.star_border,
+          color: isBookmarked ? Colors.amber.shade700 : Colors.grey.shade600,
+          onTap: onTapBookmark,
+        ),
+        const SizedBox(width: 4),
+        _HeaderIcon(
+          loading: flagLoading,
+          icon: isFlagged ? Icons.flag : Icons.outlined_flag,
+          color: isFlagged ? Colors.red.shade600 : Colors.grey.shade600,
+          onTap: onTapFlag,
+        ),
+        if (onTapNote != null) ...[
+          const SizedBox(width: 4),
+          _HeaderIcon(
+            loading: false,
+            icon: Icons.edit,
+            color: Colors.grey.shade700,
+            onTap: onTapNote,
+          ),
+        ],
+      ],
+    );
+
     return Card(
       elevation: 1.5,
-      margin: EdgeInsets.zero,
+      // margin: EdgeInsets.zero,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (content.type == 3)
-              _ImageFromHtml(htmlString: content.title)
-            else
-              Html(
-                data: "<b>${content.title}</b>",
-                style: {"b": Style(fontSize: FontSize(15.5), lineHeight: LineHeight.number(1.45))},
+            // ✅ title + icons
+            if (content.type == 3) ...[
+              Row(
+                children: [
+                  const Expanded(child: SizedBox.shrink()),
+                  headerIcons,
+                ],
               ),
+              const SizedBox(height: 8),
+              titleWidget,
+              const SizedBox(height: 8),
+              headerIcons,
+            ] else ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: titleWidget),
+                  const SizedBox(width: 8),
+                  headerIcons,
+                ],
+              ),
+            ],
+
             const SizedBox(height: 6),
+
             OptionList(
               content: content,
               showCorrect: showCorrect,
@@ -62,7 +134,9 @@ class ContentCard extends StatelessWidget {
               onChooseTF: onChooseTF,
               onChooseSBA: onChooseSBA,
             ),
+
             const SizedBox(height: 10),
+
             ActionBar(
               showAnswerActive: showCorrect,
               onToggleAnswer: onToggleAnswer,
@@ -77,6 +151,45 @@ class ContentCard extends StatelessWidget {
     );
   }
 }
+
+class _HeaderIcon extends StatelessWidget {
+  final bool loading;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _HeaderIcon({
+    required this.loading,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Center(
+        child: loading
+            ? const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+            : IconButton(
+          onPressed: onTap,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+          iconSize: 20,
+          splashRadius: 18,
+          icon: Icon(icon, color: color),
+        ),
+      ),
+    );
+  }
+}
+
 
 /* ===== Options ===== */
 

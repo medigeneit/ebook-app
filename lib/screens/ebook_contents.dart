@@ -1,28 +1,23 @@
-import 'package:ebook_project/components/notes/note_bottom_sheet.dart';
+import 'package:ebook_project/components/collapsible_sidebar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:ebook_project/api/api_service.dart';
 import 'package:ebook_project/components/app_layout.dart';
+import 'package:ebook_project/components/contents/skeletons.dart';
+import 'package:ebook_project/utils/token_store.dart';
+
 import 'package:ebook_project/models/ebook_content.dart';
 import 'package:ebook_project/models/ebook_subject.dart';
 import 'package:ebook_project/models/ebook_chapter.dart';
 import 'package:ebook_project/models/ebook_topic.dart';
-import 'package:ebook_project/utils/token_store.dart';
 
-import 'package:ebook_project/components/contents/content_card.dart';
-import 'package:ebook_project/components/contents/skeletons.dart';
-import 'package:ebook_project/components/contents/app_modal.dart';
-import 'package:ebook_project/screens/youtube_player_page.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-
-import 'package:ebook_project/components/breadcrumb_bar.dart';
-import 'package:ebook_project/components/collapsible_sidebar.dart';
-
-import 'package:ebook_project/screens/ebook_subjects.dart';
-import 'package:ebook_project/screens/ebook_chapters.dart';
-import 'package:ebook_project/screens/ebook_topics.dart';
 import 'package:ebook_project/screens/practice/practice_questions.dart';
-import 'package:ebook_project/models/note_item.dart';
+
+import 'package:ebook_project/components/ebook/ebook_contents_header.dart';
+import 'package:ebook_project/components/ebook/ebook_contents_body.dart';
+import 'package:ebook_project/components/ebook/modals/discussion_modal.dart';
+import 'package:ebook_project/components/ebook/modals/reference_modal.dart';
+import 'package:ebook_project/components/ebook/modals/solve_videos_modal.dart';
+import 'package:ebook_project/components/contents/app_modal.dart';
 
 class EbookContentsPage extends StatefulWidget {
   final String ebookId;
@@ -66,33 +61,23 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   bool sidebarOpen = false;
   bool sidebarLoading = true;
 
-  // modals
+  // modals state
   bool showModalLoader = false;
+
   String discussionContent = '';
   bool showDiscussionModal = false;
-  List<Map<String, dynamic>> solveVideos = [];
-  bool showVideoModal = false;
+
   String referenceContent = '';
   bool showReferenceModal = false;
 
-  // NOTE state
-  int? activeNoteContentId;
-  final TextEditingController noteController = TextEditingController();
-  List<NoteItem> noteList = [];
-  bool noteLoading = false;
-  int? editingNoteId; // null => create, else edit
+  List<Map<String, dynamic>> solveVideos = [];
+  bool showVideoModal = false;
 
   @override
   void initState() {
     super.initState();
     fetchSidebarSubjects();
     fetchEbookContents();
-  }
-
-  @override
-  void dispose() {
-    noteController.dispose();
-    super.dispose();
   }
 
   Future<void> fetchSidebarSubjects() async {
@@ -144,7 +129,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     }
   }
 
-  // ---------------- NOTE API helpers ----------------
+  // note base path
   String _noteBase(int contentId) {
     return "/v1/ebooks/${widget.ebookId}"
         "/subjects/${widget.subjectId}"
@@ -153,103 +138,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
         "/contents/$contentId";
   }
 
-  String _formatDate(DateTime? dt) {
-    if (dt == null) return '';
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    final d = dt.toLocal();
-    final day = d.day.toString().padLeft(2, '0');
-    final mon = months[d.month - 1];
-    return "$day $mon ${d.year}";
-  }
-
-  Future<void> _fetchNotes(int contentId) async {
-    noteLoading = true;
-    if (mounted) setState(() {});
-
-    try {
-      final api = ApiService();
-      final endpoint = "${_noteBase(contentId)}/notes";
-      final data = await api.fetchEbookData(endpoint);
-
-      final list = (data['notes'] as List? ?? [])
-          .map((e) => NoteItem.fromJson(e as Map<String, dynamic>))
-          .toList();
-
-      noteList = list;
-      noteLoading = false;
-      if (mounted) setState(() {});
-    } catch (_) {
-      noteLoading = false;
-      if (mounted) setState(() {});
-    }
-  }
-
-  Future<void> _saveOrUpdateNote() async {
-    final contentId = activeNoteContentId;
-    if (contentId == null) return;
-
-    final text = noteController.text.trim();
-    if (text.isEmpty) return;
-
-    noteLoading = true;
-    if (mounted) setState(() {});
-
-    final api = ApiService();
-
-    try {
-      if (editingNoteId == null) {
-        final endpoint = "${_noteBase(contentId)}/save";
-        await api.postData(endpoint, {'text': text});
-      } else {
-        final endpoint = "${_noteBase(contentId)}/notes/$editingNoteId/edit";
-        await api.postData(endpoint, {'text': text});
-      }
-
-      await _fetchNotes(contentId);
-
-      editingNoteId = null;
-      noteController.clear();
-      noteLoading = false;
-      if (mounted) setState(() {});
-    } catch (_) {
-      noteLoading = false;
-      if (mounted) setState(() {});
-    }
-  }
-
-  Future<void> _deleteNote(int noteId) async {
-    final contentId = activeNoteContentId;
-    if (contentId == null) return;
-
-    noteLoading = true;
-    if (mounted) setState(() {});
-
-    try {
-      final api = ApiService();
-      final endpoint = "${_noteBase(contentId)}/notes/$noteId/delete";
-      await api.deleteData(endpoint);
-
-      await _fetchNotes(contentId);
-
-      noteLoading = false;
-      if (mounted) setState(() {});
-    } catch (_) {
-      noteLoading = false;
-      if (mounted) setState(() {});
-    }
-  }
-
-  void _startEdit(NoteItem note) {
-    editingNoteId = note.id;
-    noteController.text = note.noteDetail;
-    if (mounted) setState(() {});
-  }
-
-
-  // ---------------- Sidebar titles ----------------
+  // resolved titles
   String get _subjectTitleResolved {
     if (widget.subjectTitle.trim().isNotEmpty) return widget.subjectTitle.trim();
     final hit = sidebarSubjects.where((s) => s.id.toString() == widget.subjectId);
@@ -364,18 +253,18 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           ),
         ),
       );
-      return;
     }
   }
 
-  // ---------- Existing modal fetch ----------
-  Future<void> fetchDiscussionContent(String contentId) async {
+  // ---------- modal fetch ----------
+  Future<void> fetchDiscussionContent(int contentId) async {
     setState(() => showModalLoader = true);
     try {
       final api = ApiService();
       final response = await api.fetchRawTextData(
         "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents/$contentId/discussion",
       );
+
       if (!mounted) return;
       setState(() {
         discussionContent = response;
@@ -391,7 +280,30 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     }
   }
 
-  Future<void> fetchSolveVideos(String contentId) async {
+  Future<void> fetchReferenceContent(int contentId) async {
+    setState(() => showModalLoader = true);
+    try {
+      final api = ApiService();
+      final response = await api.fetchRawTextData(
+        "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents/$contentId/references",
+      );
+
+      if (!mounted) return;
+      setState(() {
+        referenceContent = response;
+        showReferenceModal = true;
+        showModalLoader = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => showModalLoader = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to load references")),
+      );
+    }
+  }
+
+  Future<void> fetchSolveVideos(int contentId) async {
     setState(() => showModalLoader = true);
     try {
       final api = ApiService();
@@ -415,36 +327,16 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() => showModalLoader = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Failed to load videos")));
-    }
-  }
-
-  Future<void> fetchReferenceContent(String contentId) async {
-    setState(() => showModalLoader = true);
-    try {
-      final api = ApiService();
-      final response = await api.fetchRawTextData(
-        "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents/$contentId/references",
-      );
-      if (!mounted) return;
-      setState(() {
-        referenceContent = response;
-        showReferenceModal = true;
-        showModalLoader = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => showModalLoader = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to load references")),
+        const SnackBar(content: Text("Failed to load videos")),
       );
     }
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
-    final List<SidebarItem> sidebarItems = sidebarSubjects
+    final sidebarItems = sidebarSubjects
         .map<SidebarItem>(
           (s) => SidebarItem(
         id: s.id.toString(),
@@ -456,11 +348,12 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     )
         .toList();
 
-    return Stack(
-      children: [
-        AppLayout(
-          title: '${widget.ebookName} Questions',
-          body: isLoading
+    return AppLayout(
+      title: '${widget.ebookName} Questions',
+      body: Stack(
+        children: [
+          // ---- main content ----
+          isLoading
               ? ListView.separated(
             padding: const EdgeInsets.all(12),
             itemCount: 6,
@@ -471,180 +364,97 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
               ? const Center(child: Text('Failed to load contents'))
               : Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: BreadcrumbBar(
-                  items: [
-                    'SUBJECTS',
-                    _subjectTitleResolved.toUpperCase(),
-                    _chapterTitleResolved.toUpperCase(),
-                    _topicTitleResolved.toUpperCase(),
-                  ],
-                  onHome: () => Navigator.pop(context),
-                  onItemTap: [
-                        () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EbookSubjectsPage(
-                            ebookId: widget.ebookId,
-                            ebookName: widget.ebookName,
-                          ),
-                        ),
-                      );
-                    },
-                        () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EbookChaptersPage(
-                            ebookId: widget.ebookId,
-                            subjectId: widget.subjectId,
-                            ebookName: widget.ebookName,
-                            subjectTitle: _subjectTitleResolved,
-                          ),
-                        ),
-                      );
-                    },
-                        () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EbookTopicsPage(
-                            ebookId: widget.ebookId,
-                            subjectId: widget.subjectId,
-                            chapterId: widget.chapterId,
-                            ebookName: widget.ebookName,
-                            subjectTitle: _subjectTitleResolved,
-                            chapterTitle: _chapterTitleResolved,
-                          ),
-                        ),
-                      );
-                    },
-                    null,
-                  ],
-                ),
+              EbookContentsHeader(
+                ebookId: widget.ebookId,
+                ebookName: widget.ebookName,
+                subjectId: widget.subjectId,
+                chapterId: widget.chapterId,
+                topicId: widget.topicId,
+                subjectTitle: _subjectTitleResolved,
+                chapterTitle: _chapterTitleResolved,
+                topicTitle: _topicTitleResolved,
               ),
               Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
-                  itemCount: ebookContents.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final content = ebookContents[index];
-                    return ContentCard(
-                      content: content,
-                      showCorrect: showCorrect.contains(content.id),
-                      selectedTF: selectedAnswers,
-                      selectedSBA: selectedSBAAnswers,
-                      onToggleAnswer: () {
-                        setState(() {
-                          showCorrect.contains(content.id)
-                              ? showCorrect.remove(content.id)
-                              : showCorrect.add(content.id);
-                        });
-                      },
-                      onTapDiscussion: content.hasDiscussion
-                          ? () => fetchDiscussionContent(content.id.toString())
-                          : null,
-                      onTapReference: content.hasReference
-                          ? () => fetchReferenceContent(content.id.toString())
-                          : null,
-                      onTapVideo: content.hasSolveVideo
-                          ? () => fetchSolveVideos(content.id.toString())
-                          : null,
-
-                      // ✅ NOTE: app friendly bottom sheet
-                      onTapNote: () => NoteBottomSheet.open(
-                        context: context,
-                        basePath: _noteBase(content.id),
-                      ),
-
-                      onChooseTF: (optionId, label) {
-                        setState(() {
-                          final sel = selectedAnswers[optionId];
-                          selectedAnswers[optionId] = (sel == label) ? '' : label;
-                        });
-                      },
-                      onChooseSBA: (contentId, slNo) {
-                        setState(() {
-                          final sel = selectedSBAAnswers[contentId];
-                          selectedSBAAnswers[contentId] =
-                          (sel == slNo) ? '' : slNo;
-                        });
-                      },
-                    );
+                child: EbookContentsBody(
+                  contents: ebookContents,
+                  selectedTF: selectedAnswers,
+                  selectedSBA: selectedSBAAnswers,
+                  showCorrect: showCorrect,
+                  noteBasePath: _noteBase,
+                  onToggleAnswer: (cid) => () {
+                    setState(() {
+                      showCorrect.contains(cid)
+                          ? showCorrect.remove(cid)
+                          : showCorrect.add(cid);
+                    });
+                  },
+                  onTapDiscussion: (cid) => () => fetchDiscussionContent(cid),
+                  onTapReference: (cid) => () => fetchReferenceContent(cid),
+                  onTapVideo: (cid) => () => fetchSolveVideos(cid),
+                  onChooseTF: (optionId, label) {
+                    setState(() {
+                      final sel = selectedAnswers[optionId];
+                      selectedAnswers[optionId] = (sel == label) ? '' : label;
+                    });
+                  },
+                  onChooseSBA: (contentId, slNo) {
+                    setState(() {
+                      final sel = selectedSBAAnswers[contentId];
+                      selectedSBAAnswers[contentId] = (sel == slNo) ? '' : slNo;
+                    });
                   },
                 ),
               ),
             ],
           ),
-        ),
 
-        SidebarFloatingButton(onTap: () => setState(() => sidebarOpen = true)),
-
-        CollapsibleSidebar(
-          open: sidebarOpen,
-          onClose: () => setState(() => sidebarOpen = false),
-          headerTitle: 'Subjects',
-          items: sidebarItems,
-          selectedKey: 't:${widget.topicId}',
-          loadChildren: _loadChildren,
-          onTap: (it) {
-            setState(() => sidebarOpen = false);
-            _onSidebarTap(it);
-          },
-        ),
-
-        if (showDiscussionModal)
-          AppModal(
-            title: 'Discussion',
-            onClose: () => setState(() => showDiscussionModal = false),
-            child: SingleChildScrollView(child: Html(data: discussionContent)),
+          // ---- floating button (same context as SubjectsPage) ----
+          SidebarFloatingButton(
+            onTap: () => setState(() => sidebarOpen = true),
           ),
 
-        if (showVideoModal)
-          AppModal(
-            title: 'Solve Videos',
-            onClose: () => setState(() => showVideoModal = false),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: solveVideos.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, i) {
-                final v = solveVideos[i];
-                final title = "${v['title']} ${i + 1}";
-                final url = v['video_url'];
-                final videoId = YoutubePlayer.convertUrlToId(url ?? '');
+          // ---- sidebar ----
+          CollapsibleSidebar(
+            open: sidebarOpen,
+            onClose: () => setState(() => sidebarOpen = false),
+            headerTitle: 'Subjects',
+            items: sidebarItems,
+            onTap: (it) {
+              setState(() => sidebarOpen = false);
+              _onSidebarTap(it);
+            },
+            loadChildren: _loadChildren,
+          ),
 
-                if (url == null || videoId == null) {
-                  return const ListTile(
-                    leading: Icon(Icons.error, color: Colors.red),
-                    title: Text('Invalid video URL'),
-                  );
-                }
-                return ListTile(
-                  leading: const Icon(Icons.play_circle_fill, size: 32),
-                  title: Text(title, style: const TextStyle(fontSize: 14)),
-                  onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => YoutubePlayerPage(videoId: videoId),
-                    ));
-                  },
-                );
-              },
+          // ---- modals ----
+          if (showDiscussionModal)
+            Positioned.fill(
+              child: DiscussionModal(
+                html: discussionContent,
+                onClose: () => setState(() => showDiscussionModal = false),
+              ),
             ),
-          ),
 
-        if (showReferenceModal)
-          AppModal(
-            title: 'Reference',
-            onClose: () => setState(() => showReferenceModal = false),
-            child: SingleChildScrollView(child: Html(data: referenceContent)),
-          ),
+          if (showReferenceModal)
+            Positioned.fill(
+              child: ReferenceModal(
+                html: referenceContent,
+                onClose: () => setState(() => showReferenceModal = false),
+              ),
+            ),
 
-        if (showModalLoader) const AppModalLoader(),
-      ],
+          if (showVideoModal)
+            Positioned.fill(
+              child: SolveVideosModal(
+                videos: solveVideos,
+                onClose: () => setState(() => showVideoModal = false),
+              ),
+            ),
+
+          if (showModalLoader) const AppModalLoader(),
+        ],
+      ),
     );
   }
+
 }

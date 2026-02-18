@@ -1,23 +1,20 @@
-import 'package:ebook_project/components/collapsible_sidebar.dart';
-import 'package:flutter/material.dart';
 import 'package:ebook_project/api/api_service.dart';
 import 'package:ebook_project/components/app_layout.dart';
+import 'package:ebook_project/components/collapsible_sidebar.dart';
+import 'package:ebook_project/components/contents/app_modal.dart';
 import 'package:ebook_project/components/contents/skeletons.dart';
-import 'package:ebook_project/utils/token_store.dart';
-
-import 'package:ebook_project/models/ebook_content.dart';
-import 'package:ebook_project/models/ebook_subject.dart';
-import 'package:ebook_project/models/ebook_chapter.dart';
-import 'package:ebook_project/models/ebook_topic.dart';
-
-import 'package:ebook_project/screens/practice/practice_questions.dart';
-
-import 'package:ebook_project/components/ebook/ebook_contents_header.dart';
 import 'package:ebook_project/components/ebook/ebook_contents_body.dart';
+import 'package:ebook_project/components/ebook/ebook_contents_header.dart';
 import 'package:ebook_project/components/ebook/modals/discussion_modal.dart';
 import 'package:ebook_project/components/ebook/modals/reference_modal.dart';
 import 'package:ebook_project/components/ebook/modals/solve_videos_modal.dart';
-import 'package:ebook_project/components/contents/app_modal.dart';
+import 'package:ebook_project/models/ebook_chapter.dart';
+import 'package:ebook_project/models/ebook_content.dart';
+import 'package:ebook_project/models/ebook_subject.dart';
+import 'package:ebook_project/models/ebook_topic.dart';
+import 'package:ebook_project/screens/practice/practice_questions.dart';
+import 'package:ebook_project/utils/token_store.dart';
+import 'package:flutter/material.dart';
 
 class EbookContentsPage extends StatefulWidget {
   final String ebookId;
@@ -30,7 +27,6 @@ class EbookContentsPage extends StatefulWidget {
   final String chapterTitle;
   final String topicTitle;
   final int? focusContentId;
-
 
   const EbookContentsPage({
     super.key,
@@ -78,15 +74,12 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
 
   // bookmark/flag state
   final Map<int, bool> bookmarked = {}; // contentId -> bool
-  final Map<int, bool> flagged = {};    // contentId -> bool
-
-  final Set<int> bookmarkBusy = {}; // contentId busy
+  final Map<int, bool> flagged = {}; // contentId -> bool
+  final Set<int> bookmarkBusy = {};
   final Set<int> flagBusy = {};
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _focusKey = GlobalKey();
-
-
 
   @override
   void initState() {
@@ -135,7 +128,9 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
         isLoading = false;
         isError = false;
       });
+
       _prefetchBookmarkFlag(ebookContents);
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (widget.focusContentId == null) return;
         final ctx = _focusKey.currentContext;
@@ -157,7 +152,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     }
   }
 
-  // note base path
+  /// ✅ Base content path (contents/{contentId})
   String _noteBase(int contentId) {
     return "/v1/ebooks/${widget.ebookId}"
         "/subjects/${widget.subjectId}"
@@ -166,21 +161,8 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
         "/contents/$contentId";
   }
 
-  String _bookmarkPath(int contentId) {
-    return "/v1/ebooks/${widget.ebookId}"
-        "/subjects/${widget.subjectId}"
-        "/chapters/${widget.chapterId}"
-        "/topics/${widget.topicId}"
-        "/contents/$contentId/bookmark";
-  }
-
-  String _flagPath(int contentId) {
-    return "/v1/ebooks/${widget.ebookId}"
-        "/subjects/${widget.subjectId}"
-        "/chapters/${widget.chapterId}"
-        "/topics/${widget.topicId}"
-        "/contents/$contentId/flag";
-  }
+  String _bookmarkPath(int contentId) => "${_noteBase(contentId)}/bookmark";
+  String _flagPath(int contentId) => "${_noteBase(contentId)}/flag";
 
   Future<bool?> _getBookmark(ApiService api, int contentId) async {
     try {
@@ -225,6 +207,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
       flagged.addAll(fl);
     });
   }
+
   Future<void> toggleBookmark(int contentId) async {
     if (bookmarkBusy.contains(contentId)) return;
 
@@ -232,7 +215,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
 
     setState(() {
       bookmarkBusy.add(contentId);
-      bookmarked[contentId] = !prev; // optimistic
+      bookmarked[contentId] = !prev;
     });
 
     try {
@@ -240,7 +223,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
       var ep = _bookmarkPath(contentId);
       ep = await TokenStore.attachPracticeToken(ep);
 
-      final res = await api.postData(ep, {}); // empty body ok
+      final res = await api.postData(ep, {});
       if (res == null || res['error'] == 1) {
         throw ApiException((res?['message'] ?? 'Bookmark failed').toString());
       }
@@ -268,7 +251,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
 
     setState(() {
       flagBusy.add(contentId);
-      flagged[contentId] = !prev; // optimistic
+      flagged[contentId] = !prev;
     });
 
     try {
@@ -297,12 +280,32 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     }
   }
 
+  // ✅ NEW: underline save হলে লোকাল লিস্টে title আপডেট (copyWith ছাড়াই)
+  void _applyUnderlinedTitle(int contentId, String updatedTitleHtml) {
+    final i = ebookContents.indexWhere((e) => e.id == contentId);
+    if (i == -1) return;
 
+    final old = ebookContents[i];
+
+    ebookContents[i] = EbookContent(
+      id: old.id,
+      title: updatedTitleHtml, // ✅ শুধু এটায় change
+      type: old.type,
+      pageNo: old.pageNo,
+      options: old.options,
+      answer: old.answer,
+      hasDiscussion: old.hasDiscussion,
+      hasReference: old.hasReference,
+      hasSolveVideo: old.hasSolveVideo,
+      hasNote: old.hasNote,
+    );
+  }
 
   // resolved titles
   String get _subjectTitleResolved {
     if (widget.subjectTitle.trim().isNotEmpty) return widget.subjectTitle.trim();
-    final hit = sidebarSubjects.where((s) => s.id.toString() == widget.subjectId);
+    final hit =
+    sidebarSubjects.where((s) => s.id.toString() == widget.subjectId);
     return hit.isNotEmpty ? hit.first.title : 'SUBJECT';
   }
 
@@ -317,7 +320,8 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     final api = ApiService();
 
     if (parent.type == SidebarItemType.subject) {
-      var endpoint = "/v1/ebooks/${widget.ebookId}/subjects/${parent.id}/chapters";
+      var endpoint =
+          "/v1/ebooks/${widget.ebookId}/subjects/${parent.id}/chapters";
       endpoint = await TokenStore.attachPracticeToken(endpoint);
 
       final data = await api.fetchEbookData(endpoint);
@@ -363,7 +367,8 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           hasChildren: false,
           meta: {
             'subjectId': subjectId,
-            'subjectTitle': parent.meta['subjectTitle'] ?? _subjectTitleResolved,
+            'subjectTitle':
+            parent.meta['subjectTitle'] ?? _subjectTitleResolved,
             'chapterId': parent.id,
             'chapterTitle': parent.title,
           },
@@ -423,7 +428,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     try {
       final api = ApiService();
       final response = await api.fetchRawTextData(
-        "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents/$contentId/discussion",
+        "${_noteBase(contentId)}/discussion",
       );
 
       if (!mounted) return;
@@ -446,7 +451,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     try {
       final api = ApiService();
       final response = await api.fetchRawTextData(
-        "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents/$contentId/references",
+        "${_noteBase(contentId)}/references",
       );
 
       if (!mounted) return;
@@ -469,7 +474,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     try {
       final api = ApiService();
       final data = await api.fetchEbookData(
-        "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents/$contentId/solve-videos",
+        "${_noteBase(contentId)}/solve-videos",
       );
 
       solveVideos = (data['solve_videos'] as List? ?? [])
@@ -495,7 +500,6 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     final sidebarItems = sidebarSubjects
         .map<SidebarItem>(
@@ -514,7 +518,6 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
       bodyPadding: EdgeInsets.zero,
       body: Stack(
         children: [
-          // ---- main content ----
           isLoading
               ? ListView.separated(
             padding: const EdgeInsets.all(12),
@@ -542,7 +545,10 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                   selectedTF: selectedAnswers,
                   selectedSBA: selectedSBAAnswers,
                   showCorrect: showCorrect,
+
                   noteBasePath: _noteBase,
+                  contentBasePath: _noteBase,
+
                   bookmarked: bookmarked,
                   flagged: flagged,
                   bookmarkBusy: bookmarkBusy,
@@ -550,8 +556,10 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                   scrollController: _scrollController,
                   focusContentId: widget.focusContentId,
                   focusKey: _focusKey,
+
                   onTapBookmark: (cid) => () => toggleBookmark(cid),
                   onTapFlag: (cid) => () => toggleFlag(cid),
+
                   onToggleAnswer: (cid) => () {
                     setState(() {
                       showCorrect.contains(cid)
@@ -559,19 +567,32 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                           : showCorrect.add(cid);
                     });
                   },
-                  onTapDiscussion: (cid) => () => fetchDiscussionContent(cid),
-                  onTapReference: (cid) => () => fetchReferenceContent(cid),
+
+                  onTapDiscussion: (cid) =>
+                      () => fetchDiscussionContent(cid),
+                  onTapReference: (cid) =>
+                      () => fetchReferenceContent(cid),
                   onTapVideo: (cid) => () => fetchSolveVideos(cid),
+
                   onChooseTF: (optionId, label) {
                     setState(() {
                       final sel = selectedAnswers[optionId];
-                      selectedAnswers[optionId] = (sel == label) ? '' : label;
+                      selectedAnswers[optionId] =
+                      (sel == label) ? '' : label;
                     });
                   },
                   onChooseSBA: (contentId, slNo) {
                     setState(() {
                       final sel = selectedSBAAnswers[contentId];
-                      selectedSBAAnswers[contentId] = (sel == slNo) ? '' : slNo;
+                      selectedSBAAnswers[contentId] =
+                      (sel == slNo) ? '' : slNo;
+                    });
+                  },
+
+                  // ✅ এখানে copyWith বাদ, constructor দিয়ে update
+                  onUnderlineSaved: (cid, html) {
+                    setState(() {
+                      _applyUnderlinedTitle(cid, html);
                     });
                   },
                 ),
@@ -579,12 +600,10 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
             ],
           ),
 
-          // ---- floating button (same context as SubjectsPage) ----
           SidebarFloatingButton(
             onTap: () => setState(() => sidebarOpen = true),
           ),
 
-          // ---- sidebar ----
           CollapsibleSidebar(
             open: sidebarOpen,
             onClose: () => setState(() => sidebarOpen = false),
@@ -597,7 +616,6 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
             loadChildren: _loadChildren,
           ),
 
-          // ---- modals ----
           if (showDiscussionModal)
             Positioned.fill(
               child: DiscussionModal(
@@ -627,5 +645,4 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
       ),
     );
   }
-
 }

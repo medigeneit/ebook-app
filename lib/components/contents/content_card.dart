@@ -15,7 +15,12 @@ class ContentCard extends StatelessWidget {
   final VoidCallback? onTapDiscussion;
   final VoidCallback? onTapReference;
   final VoidCallback? onTapVideo;
+
+  /// ✅ ActionBar এর Note বাটনের জন্য (শুধু note sheet)
   final VoidCallback? onTapNote;
+
+  /// ✅ Header edit icon এর জন্য (Note + Underline sheet)
+  final VoidCallback? onTapEdit;
 
   final void Function(int optionId, String label) onChooseTF;
   final void Function(int contentId, String slNo) onChooseSBA;
@@ -47,6 +52,7 @@ class ContentCard extends StatelessWidget {
     this.onTapReference,
     this.onTapVideo,
     this.onTapNote,
+    this.onTapEdit,
   });
 
   @override
@@ -79,13 +85,15 @@ class ContentCard extends StatelessWidget {
           color: isFlagged ? Colors.red.shade600 : Colors.grey.shade600,
           onTap: onTapFlag,
         ),
-        if (onTapNote != null) ...[
+
+        /// ✅ edit icon (Note + Underline)
+        if (onTapEdit != null) ...[
           const SizedBox(width: 4),
           _HeaderIcon(
             loading: false,
-            icon: Icons.edit,
+            icon: Icons.format_underline,
             color: Colors.grey.shade700,
-            onTap: onTapNote,
+            onTap: onTapEdit,
           ),
         ],
       ],
@@ -93,7 +101,6 @@ class ContentCard extends StatelessWidget {
 
     return Card(
       elevation: 1.5,
-      // margin: EdgeInsets.zero,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -143,6 +150,8 @@ class ContentCard extends StatelessWidget {
               onTapDiscussion: onTapDiscussion,
               onTapReference: onTapReference,
               onTapVideo: onTapVideo,
+
+              /// ✅ ActionBar Note (শুধু note sheet)
               onTapNote: onTapNote,
             ),
           ],
@@ -190,7 +199,6 @@ class _HeaderIcon extends StatelessWidget {
   }
 }
 
-
 /* ===== Options ===== */
 
 class OptionList extends StatelessWidget {
@@ -213,11 +221,9 @@ class OptionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1) options সবসময় A→B→C→D→E ক্রমে সাজাও
     final opts = [...content.options]
       ..sort((a, b) => (a.slNo ?? '').compareTo(b.slNo ?? ''));
 
-    // 2) answer স্ট্রিং ক্লিন করে শুধুই T/F রেখে uppercase করো
     final cleanAns = (content.answer ?? '')
         .replaceAll(RegExp(r'[^TFtf]'), '')
         .toUpperCase();
@@ -227,7 +233,6 @@ class OptionList extends StatelessWidget {
         final option = opts[i];
 
         if (content.type == 1) {
-          // TF: answerKey = cleanAns[i] (গার্ড সহ)
           final answerKey = (i < cleanAns.length) ? cleanAns[i] : '';
           final selected = selectedTF[option.id];
 
@@ -257,7 +262,6 @@ class OptionList extends StatelessWidget {
         }
 
         if (content.type == 2) {
-          // SBA: letter match — উভয় পাশই uppercase/trim করো
           final selected = selectedSBA[content.id];
           final isSelected = (selected ?? '').toUpperCase().trim() ==
               (option.slNo ?? '').toUpperCase().trim();
@@ -287,7 +291,6 @@ class OptionList extends StatelessWidget {
       }),
     );
   }
-
 }
 
 /* ===== Buttons ===== */
@@ -295,7 +298,7 @@ class OptionList extends StatelessWidget {
 class TFButton extends StatelessWidget {
   final String label;
   final bool isSelected;
-  final bool? isCorrect; // null = neutral
+  final bool? isCorrect;
   final VoidCallback onTap;
 
   const TFButton({
@@ -361,9 +364,11 @@ class RoundOptionButton extends StatelessWidget {
 
     switch (verdict) {
       case _Verdict.correct:
-        bg = Colors.green.shade700; break;
+        bg = Colors.green.shade700;
+        break;
       case _Verdict.wrong:
-        bg = Colors.red.shade700; break;
+        bg = Colors.red.shade700;
+        break;
       case _Verdict.neutral:
         bg = isSelected ? Colors.blue.shade700 : Colors.grey.shade300;
         fg = isSelected ? Colors.white : Colors.black87;
@@ -409,14 +414,10 @@ class _ImageFromHtml extends StatelessWidget {
 
     return Column(
       children: [
-        // ClipRRect(
-        //   borderRadius: BorderRadius.circular(12),
-        //   child: ImageWithPlaceholder(imageUrl: imageUrl),
-        // ),
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: SizedBox(
-            height: 220, // ✅ এখানে বাড়ান
+            height: 220,
             width: double.infinity,
             child: ZoomableQuestionImage(
               imageUrl: imageUrl,
@@ -424,7 +425,6 @@ class _ImageFromHtml extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(height: 8),
       ],
     );
@@ -432,8 +432,6 @@ class _ImageFromHtml extends StatelessWidget {
 }
 
 /* ===== Action bar ===== */
-
-/* ===== Action bar (side-by-side) ===== */
 
 class ActionBar extends StatelessWidget {
   final bool showAnswerActive;
@@ -455,7 +453,6 @@ class ActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // যেসব বাটন আছে তাদের লিস্ট বানালাম
     final btns = <Widget>[
       _PrimaryPillButton(
         label: showAnswerActive ? "Hide Answer" : "Answer",
@@ -474,10 +471,9 @@ class ActionBar extends StatelessWidget {
 
     if (btns.isEmpty) return const SizedBox.shrink();
 
-    // সব বাটনকে এক লাইনে, সমান প্রস্থে দেখাই
     return Row(
       children: List.generate(btns.length * 2 - 1, (i) {
-        if (i.isOdd) return const SizedBox(width: 8); // গ্যাপ
+        if (i.isOdd) return const SizedBox(width: 8);
         final idx = i ~/ 2;
         return Expanded(child: btns[idx]);
       }),
@@ -499,7 +495,7 @@ class _PrimaryPillButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 44, // ফিক্সড হাইট
+      height: 44,
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
@@ -508,7 +504,7 @@ class _PrimaryPillButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           elevation: isActive ? 2 : 0,
-          padding: const EdgeInsets.symmetric(horizontal: 12), // Expanded বলে বড় padding দরকার নেই
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         child: Text(
@@ -520,4 +516,3 @@ class _PrimaryPillButton extends StatelessWidget {
     );
   }
 }
-

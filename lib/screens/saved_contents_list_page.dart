@@ -53,7 +53,6 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
   void initState() {
     super.initState();
     _loadProducts();
-
     _search.addListener(() {
       setState(() => _query = _search.text.trim().toLowerCase());
     });
@@ -127,14 +126,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
     }
   }
 
-  String get _countLabel {
-    switch (widget.mode) {
-      case SavedListMode.notes:
-        return 'notes';
-      default:
-        return 'items';
-    }
-  }
+  String get _countLabel => widget.mode == SavedListMode.notes ? 'notes' : 'items';
 
   // ---------------------------------------
   // Step 1: product list
@@ -157,11 +149,11 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
     });
 
     try {
-      // ✅ তোমার API: Route::get('my-notes/products', poductwise_item)
-      // তাই product list সব option-এ এখানেই যাবে
+      // ✅ তোমার দেয়া: Route::get('my-notes/products', poductwise_item)
       final data = await _fetchFirstOk([
         '/my-notes/products?option=$_option',
-        // fallback (যদি কোথাও পুরনো থাকে)
+        '/v1/my-notes/products?option=$_option',
+        // fallback safe
         '/productwise-items?option=$_option',
         '/v1/productwise-items?option=$_option',
       ]);
@@ -172,7 +164,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
       final rawProducts = data['products'];
       final out = <_ProductItem>[];
 
-      // Laravel pluck => Map { "id": "book_name", ... }
+      // Laravel pluck => Map { "id": "book_name" }
       if (rawProducts is Map) {
         rawProducts.forEach((k, v) {
           final id = int.tryParse(k.toString()) ?? 0;
@@ -180,7 +172,6 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
           if (id > 0 && name.isNotEmpty) out.add(_ProductItem(id: id, name: name));
         });
       } else if (rawProducts is List) {
-        // fallback list
         for (final x in rawProducts) {
           if (x is! Map) continue;
           final m = Map<String, dynamic>.from(x);
@@ -222,7 +213,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
     });
 
     try {
-      // ✅ তোমার API:
+      // ✅ তোমার দেয়া API:
       // my-bookmarks/products/{product}
       // my-flags/products/{product}
       // my-notes/products/{product}
@@ -231,10 +222,9 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
         '/v1/$_base/products/${p.id}',
       ]);
 
-      // bookmarks/flags/notes key
       dynamic rawList = data[_itemsKey];
 
-      // notes এ server key ভিন্ন হলে fallback (safe)
+      // notes: server key mismatch হলে fallback
       rawList ??= data['my_notes'] ?? data['doctor_notes'] ?? data['items'] ?? data['data'];
 
       final list = (rawList is List) ? rawList : <dynamic>[];
@@ -248,39 +238,33 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
         m['ebook_id'] = p.id;
         m['ebook_title'] = p.name;
 
-        // flatten question relation (bookmark/flag এ থাকতে পারে)
+        // bookmarks/flags => question relation flatten
         if (m['question'] is Map) {
           final q = Map<String, dynamic>.from(m['question']);
           m['question_id'] = q['id'];
           m['question_title'] = q['question_title'];
-          m['content_title'] = q['question_title'];
         }
 
-        // ✅ Notes: note_detail সেট করো (subject_title override করবে না)
+        // notes => subject/chapter/topic name flatten (তোমার response অনুযায়ী)
         if (widget.mode == SavedListMode.notes) {
-          final noteText = (m['note_detail'] ??
-              m['note'] ??
-              m['note_text'] ??
-              m['note_body'] ??
-              m['details'] ??
-              m['body'] ??
-              m['content'] ??
-              m['description'] ??
-              '')
-              .toString();
-
-          m['note_detail'] = noteText;
-
-          // title empty হলে note excerpt দিয়ে title বানাও
-          if ((m['content_title'] ?? '').toString().trim().isEmpty) {
-            m['content_title'] = _excerpt(noteText).isEmpty ? 'My Note' : _excerpt(noteText);
+          if (m['subject'] is Map) {
+            final s = Map<String, dynamic>.from(m['subject']);
+            m['subject_name'] = s['subject_name'] ?? s['name'];
+          }
+          if (m['chapter'] is Map) {
+            final c = Map<String, dynamic>.from(m['chapter']);
+            m['chapter_name'] = c['chapter_name'] ?? c['name'];
+          }
+          if (m['topic'] is Map) {
+            final t = Map<String, dynamic>.from(m['topic']);
+            m['topic_name'] = t['topic_name'] ?? t['name'];
           }
         }
 
         parsed.add(SavedContentItem.fromJsonFlexible(m));
       }
 
-      // recent first
+      // recent first (createdAt null হলে stable রাখবে)
       parsed.sort((a, b) {
         final ca = a.createdAt?.millisecondsSinceEpoch ?? 0;
         final cb = b.createdAt?.millisecondsSinceEpoch ?? 0;
@@ -306,15 +290,13 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
   // open item
   // ---------------------------------------
   void _openItem(SavedContentItem it) {
-    // ✅ Notes হলে BottomSheet দেখাও
     if (widget.mode == SavedListMode.notes) {
       _openNoteSheet(it);
       return;
     }
 
-    // bookmarks/flags
     if (!it.canOpenContent) {
-      _snack('এই আইটেমে subject/chapter/topic/content path নাই। Backend থেকে id গুলো পাঠালে direct open হবে।');
+      _snack('এই আইটেমে subject/chapter/topic/content id নাই। Backend থেকে id গুলো পাঠালে direct open হবে।');
       return;
     }
 
@@ -340,7 +322,6 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
     final cs = theme.colorScheme;
 
     final noteText = it.noteDetail.trim();
-    final path = _pathText(it);
 
     showModalBottomSheet(
       context: context,
@@ -379,11 +360,10 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-
-                if (path.trim().isNotEmpty && path != '—') ...[
+                const SizedBox(height: 10),
+                if (_pathText(it).trim().isNotEmpty && _pathText(it) != '—') ...[
                   Text(
-                    path,
+                    _pathText(it),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurface.withOpacity(.65),
                       fontWeight: FontWeight.w700,
@@ -391,7 +371,6 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
                   ),
                   const SizedBox(height: 10),
                 ],
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -421,21 +400,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
                         onPressed: it.canOpenContent
                             ? () {
                           Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => EbookContentsPage(
-                                ebookId: it.ebookId.toString(),
-                                subjectId: it.subjectId!.toString(),
-                                chapterId: it.chapterId!.toString(),
-                                topicId: it.topicId!.toString(),
-                                ebookName: it.ebookTitle.trim().isEmpty ? 'Ebook' : it.ebookTitle,
-                                subjectTitle: it.subjectTitle,
-                                chapterTitle: it.chapterTitle,
-                                topicTitle: it.topicTitle,
-                              ),
-                            ),
-                          );
+                          _openItem(it);
                         }
                             : null,
                         icon: const Icon(Icons.open_in_new),
@@ -484,9 +449,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
 
   // ---------------- UI: products ----------------
   Widget _buildProductsView(ThemeData theme) {
-    if (_loadingProducts) {
-      return const ShimmerListLoader(itemCount: 7);
-    }
+    if (_loadingProducts) return const ShimmerListLoader(itemCount: 7);
 
     if (_errorProducts) {
       return Center(
@@ -520,7 +483,11 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
           children: [
             _CountChip(icon: _modeIcon, text: '${list.length} books'),
             const Spacer(),
-            IconButton(onPressed: _loadProducts, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
+            IconButton(
+              onPressed: _loadProducts,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh',
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -592,14 +559,12 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
             ),
           ],
         ),
-
         const SizedBox(height: 8),
         _NiceSearchBar(
           controller: _search,
           hint: widget.mode == SavedListMode.notes ? 'Search note...' : 'Search question...',
         ),
         const SizedBox(height: 10),
-
         Row(
           children: [
             _CountChip(icon: _modeIcon, text: '${list.length} $_countLabel'),
@@ -607,7 +572,6 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
           ],
         ),
         const SizedBox(height: 8),
-
         Expanded(
           child: _loadingItems
               ? const ShimmerListLoader(itemCount: 7)
@@ -618,8 +582,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('লোড করা যায়নি',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  Text('লোড করা যায়নি', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 8),
                   Text(_errorItemsMsg, textAlign: TextAlign.center),
                   const SizedBox(height: 12),
@@ -652,12 +615,19 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
                 final it = list[i];
 
                 final title = it.contentTitle.trim().isEmpty
-                    ? (widget.mode == SavedListMode.notes ? 'My Note' : 'Question #${it.contentId ?? '-'}')
+                    ? 'Question #${it.contentId ?? '-'}'
                     : it.contentTitle.trim();
 
-                final subtitle = widget.mode == SavedListMode.notes
-                    ? _notesSubtitle(it)
-                    : _pathText(it);
+                String subtitle;
+                if (widget.mode == SavedListMode.notes) {
+                  final n = _excerpt(it.noteDetail);
+                  final path = _pathText(it);
+                  subtitle = n.isEmpty
+                      ? (path == '—' ? 'Tap to view note' : path)
+                      : (path == '—' ? n : '$n\n$path');
+                } else {
+                  subtitle = _pathText(it);
+                }
 
                 return _NiceItemCard(
                   title: title,
@@ -671,14 +641,6 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
         ),
       ],
     );
-  }
-
-  String _notesSubtitle(SavedContentItem it) {
-    final path = _pathText(it);
-    final note = _excerpt(it.noteDetail);
-    if (path == '—' || path.trim().isEmpty) return note.isEmpty ? 'Tap to view note' : note;
-    if (note.isEmpty) return path;
-    return '$path\n$note';
   }
 
   String _pathText(SavedContentItem it) {
@@ -766,7 +728,10 @@ class _CountChip extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: cs.primary),
           const SizedBox(width: 6),
-          Text(text, style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800)),
+          Text(
+            text,
+            style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
         ],
       ),
     );
@@ -920,7 +885,7 @@ class _NiceItemCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       subtitle.isEmpty ? '—' : subtitle,
-                      maxLines: 3, // ✅ notes এ path + note দেখানোর জন্য
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurface.withOpacity(.65),

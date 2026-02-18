@@ -290,6 +290,17 @@ class _ProfilePageState extends State<ProfilePage> {
                     Navigator.pushNamed(context, '/my-flags');
                   },
                 ),
+                _Tile(
+                  icon: Icons.sticky_note_2_outlined,
+                  label: 'My Notes',
+                  onTap: () {
+                    if (!isLoggedIn) {
+                      _showLoginSheet();
+                      return;
+                    }
+                    Navigator.pushNamed(context, '/my-notes');
+                  },
+                ),
                 // _Tile(
                 //   icon: Icons.receipt_long_outlined,
                 //   label: 'Orders',

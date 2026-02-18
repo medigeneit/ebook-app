@@ -1,5 +1,6 @@
 import 'package:ebook_project/components/ebook_grid.dart';
 import 'package:ebook_project/screens/device_verification/device_info_screen.dart';
+import 'package:ebook_project/screens/my_notes_page.dart';
 import 'package:ebook_project/screens/profile.dart';
 import 'package:ebook_project/screens/splash.dart';
 import 'package:ebook_project/theme/app_colors.dart';
@@ -64,6 +65,7 @@ class MyApp extends StatelessWidget {
         '/device-info': (_) => const DeviceInfoScreen(),
         '/my-bookmarks': (_) => const MyBookmarksPage(),
         '/my-flags': (_) => const MyFlagsPage(),
+        '/my-notes': (_) => const MyNotesPage(),
       },
       navigatorObservers: [routeObserver],
     );

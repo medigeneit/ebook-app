@@ -157,7 +157,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
     });
 
     try {
-      // ✅ তোমার দেয়া API: Route::get('my-notes/products', poductwise_item)
+      // ✅ তোমার API: Route::get('my-notes/products', poductwise_item)
       // তাই product list সব option-এ এখানেই যাবে
       final data = await _fetchFirstOk([
         '/my-notes/products?option=$_option',
@@ -222,7 +222,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
     });
 
     try {
-      // ✅ তোমার দেয়া API:
+      // ✅ তোমার API:
       // my-bookmarks/products/{product}
       // my-flags/products/{product}
       // my-notes/products/{product}
@@ -248,18 +248,18 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
         m['ebook_id'] = p.id;
         m['ebook_title'] = p.name;
 
-        // flatten question relation
+        // flatten question relation (bookmark/flag এ থাকতে পারে)
         if (m['question'] is Map) {
           final q = Map<String, dynamic>.from(m['question']);
           m['question_id'] = q['id'];
           m['question_title'] = q['question_title'];
-          // title হিসেবে question title
           m['content_title'] = q['question_title'];
         }
 
-        // ✅ Notes mode: note text কে subtitle হিসেবে দেখাবো (subject_title এ রেখে দিলাম)
+        // ✅ Notes: note_detail সেট করো (subject_title override করবে না)
         if (widget.mode == SavedListMode.notes) {
-          final noteText = (m['note'] ??
+          final noteText = (m['note_detail'] ??
+              m['note'] ??
               m['note_text'] ??
               m['note_body'] ??
               m['details'] ??
@@ -269,9 +269,9 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
               '')
               .toString();
 
-          // subtitle দেখানোর জন্য
-          m['subject_title'] = noteText;
-          // যদি question title না আসে, note থেকে fallback title
+          m['note_detail'] = noteText;
+
+          // title empty হলে note excerpt দিয়ে title বানাও
           if ((m['content_title'] ?? '').toString().trim().isEmpty) {
             m['content_title'] = _excerpt(noteText).isEmpty ? 'My Note' : _excerpt(noteText);
           }
@@ -312,7 +312,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
       return;
     }
 
-    // bookmarks/flags আগের মতো
+    // bookmarks/flags
     if (!it.canOpenContent) {
       _snack('এই আইটেমে subject/chapter/topic/content path নাই। Backend থেকে id গুলো পাঠালে direct open হবে।');
       return;
@@ -338,7 +338,9 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
   void _openNoteSheet(SavedContentItem it) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final noteText = (it.subjectTitle).trim(); // আমরা এখানে note text রেখেছি
+
+    final noteText = it.noteDetail.trim();
+    final path = _pathText(it);
 
     showModalBottomSheet(
       context: context,
@@ -377,7 +379,19 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+
+                if (path.trim().isNotEmpty && path != '—') ...[
+                  Text(
+                    path,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurface.withOpacity(.65),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -445,14 +459,15 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
 
   List<SavedContentItem> get _filteredItems {
     if (_query.isEmpty) return _items;
-    // notes হলে note text/title দুটোতেই সার্চ
+
     if (widget.mode == SavedListMode.notes) {
       return _items.where((it) {
         final t = it.contentTitle.toLowerCase();
-        final n = it.subjectTitle.toLowerCase(); // note text stored here
+        final n = it.noteDetail.toLowerCase();
         return t.contains(_query) || n.contains(_query);
       }).toList();
     }
+
     return _items.where((it) => it.contentTitle.toLowerCase().contains(_query)).toList();
   }
 
@@ -499,24 +514,15 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
 
     return Column(
       children: [
-        _NiceSearchBar(
-          controller: _search,
-          hint: 'Search book...',
-        ),
+        _NiceSearchBar(controller: _search, hint: 'Search book...'),
         const SizedBox(height: 10),
-
         Row(
           children: [
             _CountChip(icon: _modeIcon, text: '${list.length} books'),
             const Spacer(),
-            IconButton(
-              onPressed: _loadProducts,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
-            ),
+            IconButton(onPressed: _loadProducts, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
           ],
         ),
-
         const SizedBox(height: 8),
         Expanded(
           child: list.isEmpty
@@ -600,7 +606,6 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
             const Spacer(),
           ],
         ),
-
         const SizedBox(height: 8),
 
         Expanded(
@@ -645,12 +650,13 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
               itemCount: list.length,
               itemBuilder: (context, i) {
                 final it = list[i];
+
                 final title = it.contentTitle.trim().isEmpty
                     ? (widget.mode == SavedListMode.notes ? 'My Note' : 'Question #${it.contentId ?? '-'}')
                     : it.contentTitle.trim();
 
                 final subtitle = widget.mode == SavedListMode.notes
-                    ? (_excerpt(it.subjectTitle).isEmpty ? 'Tap to view note' : _excerpt(it.subjectTitle))
+                    ? _notesSubtitle(it)
                     : _pathText(it);
 
                 return _NiceItemCard(
@@ -665,6 +671,14 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
         ),
       ],
     );
+  }
+
+  String _notesSubtitle(SavedContentItem it) {
+    final path = _pathText(it);
+    final note = _excerpt(it.noteDetail);
+    if (path == '—' || path.trim().isEmpty) return note.isEmpty ? 'Tap to view note' : note;
+    if (note.isEmpty) return path;
+    return '$path\n$note';
   }
 
   String _pathText(SavedContentItem it) {
@@ -752,10 +766,7 @@ class _CountChip extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: cs.primary),
           const SizedBox(width: 6),
-          Text(
-            text,
-            style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
+          Text(text, style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800)),
         ],
       ),
     );
@@ -839,10 +850,7 @@ class _NiceSelectCard extends StatelessWidget {
                   children: [
                     Icon(trailingIcon, size: 18, color: cs.primary),
                     const SizedBox(width: 6),
-                    Text(
-                      "View",
-                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
-                    ),
+                    Text("View", style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900)),
                   ],
                 ),
               ),
@@ -912,7 +920,7 @@ class _NiceItemCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       subtitle.isEmpty ? '—' : subtitle,
-                      maxLines: 2,
+                      maxLines: 3, // ✅ notes এ path + note দেখানোর জন্য
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurface.withOpacity(.65),

@@ -23,6 +23,8 @@ import 'device_verification.dart';
 import 'login.dart';
 import 'my_ebooks_page.dart';
 import 'subscription_page.dart';
+import 'package:ebook_project/screens/my_bookmarks_page.dart';
+import 'package:ebook_project/screens/my_flags_page.dart';
 
 final RouteObserver<ModalRoute<void>> routeObserver =
     RouteObserver<ModalRoute<void>>();
@@ -60,6 +62,8 @@ class MyApp extends StatelessWidget {
         '/device-change': (_) => const DeviceChangeScreen(),
         '/device-replace-request': (_) => const DeviceReplaceRequestScreen(),
         '/device-info': (_) => const DeviceInfoScreen(),
+        '/my-bookmarks': (_) => const MyBookmarksPage(),
+        '/my-flags': (_) => const MyFlagsPage(),
       },
       navigatorObservers: [routeObserver],
     );

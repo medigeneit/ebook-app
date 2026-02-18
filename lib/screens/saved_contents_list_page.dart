@@ -1,0 +1,742 @@
+import 'package:ebook_project/api/api_service.dart';
+import 'package:ebook_project/components/app_layout.dart';
+import 'package:ebook_project/components/shimmer_list_loader.dart';
+import 'package:ebook_project/models/saved_content_item.dart';
+import 'package:ebook_project/screens/ebook_contents.dart';
+import 'package:ebook_project/utils/token_store.dart';
+import 'package:flutter/material.dart';
+
+enum SavedListMode { bookmarks, flags }
+
+class SavedContentsListPage extends StatefulWidget {
+  final SavedListMode mode;
+
+  const SavedContentsListPage({super.key, required this.mode});
+
+  String get title => mode == SavedListMode.bookmarks ? 'My Bookmarks' : 'My Flags';
+
+  @override
+  State<SavedContentsListPage> createState() => _SavedContentsListPageState();
+}
+
+class _SavedContentsListPageState extends State<SavedContentsListPage> {
+  final ApiService api = ApiService();
+
+  // products state
+  bool _loadingProducts = true;
+  bool _errorProducts = false;
+  String _errorProductsMsg = '';
+  String _serverTitle = '';
+  final List<_ProductItem> _products = [];
+  _ProductItem? _selectedProduct;
+
+  // items state
+  bool _loadingItems = false;
+  bool _errorItems = false;
+  String _errorItemsMsg = '';
+  final List<SavedContentItem> _items = [];
+
+  // search
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+
+    _search.addListener(() {
+      setState(() => _query = _search.text.trim().toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<Map<String, dynamic>> _fetchFirstOk(List<String> endpoints) async {
+    Object? last;
+    for (final ep0 in endpoints) {
+      try {
+        final ep = await TokenStore.attachPracticeToken(ep0);
+        return await api.fetchEbookData(ep);
+      } catch (e) {
+        last = e;
+      }
+    }
+    throw last ?? Exception('API call failed');
+  }
+
+  String get _option => widget.mode == SavedListMode.bookmarks ? 'my-bookmarks' : 'my-flags';
+
+  String get _itemsKey => widget.mode == SavedListMode.bookmarks ? 'bookmarks' : 'flags';
+
+  IconData get _modeIcon =>
+      widget.mode == SavedListMode.bookmarks ? Icons.bookmark_rounded : Icons.flag_rounded;
+
+  // ---------------------------------------
+  // Step 1: product list
+  // ---------------------------------------
+  Future<void> _loadProducts() async {
+    setState(() {
+      _loadingProducts = true;
+      _errorProducts = false;
+      _errorProductsMsg = '';
+      _serverTitle = '';
+      _products.clear();
+
+      _selectedProduct = null;
+      _items.clear();
+      _loadingItems = false;
+      _errorItems = false;
+      _errorItemsMsg = '';
+      _search.clear();
+      _query = '';
+    });
+
+    try {
+      final data = await _fetchFirstOk([
+        '/v1/productwise-items?option=$_option',
+        '/productwise-items?option=$_option',
+      ]);
+
+      final title = (data['title'] ?? '').toString().trim();
+      if (title.isNotEmpty) _serverTitle = title;
+
+      final rawProducts = data['products'];
+
+      final out = <_ProductItem>[];
+
+      // Laravel pluck => Map { "id": "book_name", ... }
+      if (rawProducts is Map) {
+        rawProducts.forEach((k, v) {
+          final id = int.tryParse(k.toString()) ?? 0;
+          final name = (v ?? '').toString().trim();
+          if (id > 0 && name.isNotEmpty) out.add(_ProductItem(id: id, name: name));
+        });
+      }
+      // fallback list
+      else if (rawProducts is List) {
+        for (final x in rawProducts) {
+          if (x is! Map) continue;
+          final m = Map<String, dynamic>.from(x);
+          final id = _asInt(m['id'] ?? m['product_id']);
+          final name = (m['book_name'] ?? m['name'] ?? m['title'] ?? '').toString().trim();
+          if (id > 0 && name.isNotEmpty) out.add(_ProductItem(id: id, name: name));
+        }
+      }
+
+      out.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+      if (!mounted) return;
+      setState(() {
+        _products.addAll(out);
+        _loadingProducts = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingProducts = false;
+        _errorProducts = true;
+        _errorProductsMsg = e.toString();
+      });
+    }
+  }
+
+  // ---------------------------------------
+  // Step 2: items list by product
+  // ---------------------------------------
+  Future<void> _loadItemsForProduct(_ProductItem p) async {
+    setState(() {
+      _selectedProduct = p;
+      _loadingItems = true;
+      _errorItems = false;
+      _errorItemsMsg = '';
+      _items.clear();
+      _search.clear();
+      _query = '';
+    });
+
+    try {
+      final base = widget.mode == SavedListMode.bookmarks ? 'my-bookmarks' : 'my-flags';
+
+      final data = await _fetchFirstOk([
+        '/v1/$base/products/${p.id}',
+        '/$base/products/${p.id}',
+      ]);
+
+      final list = (data[_itemsKey] is List) ? (data[_itemsKey] as List) : <dynamic>[];
+
+      final parsed = <SavedContentItem>[];
+      for (final row in list) {
+        if (row is! Map) continue;
+        final m = Map<String, dynamic>.from(row);
+
+        // inject product info
+        m['ebook_id'] = p.id;
+        m['ebook_title'] = p.name;
+
+        // flatten question relation
+        if (m['question'] is Map) {
+          final q = Map<String, dynamic>.from(m['question']);
+          m['question_id'] = q['id'];
+          m['question_title'] = q['question_title'];
+          m['content_title'] = q['question_title'];
+        }
+
+        parsed.add(SavedContentItem.fromJsonFlexible(m));
+      }
+
+      parsed.sort((a, b) {
+        final ca = a.createdAt?.millisecondsSinceEpoch ?? 0;
+        final cb = b.createdAt?.millisecondsSinceEpoch ?? 0;
+        return cb.compareTo(ca);
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(parsed);
+        _loadingItems = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingItems = false;
+        _errorItems = true;
+        _errorItemsMsg = e.toString();
+      });
+    }
+  }
+
+  // ---------------------------------------
+  // open item
+  // ---------------------------------------
+  void _openItem(SavedContentItem it) {
+    if (!it.canOpenContent) {
+      _snack('এই আইটেমে subject/chapter/topic/content path নাই। Backend থেকে id গুলো পাঠালে direct open হবে।');
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EbookContentsPage(
+          ebookId: it.ebookId.toString(),
+          subjectId: it.subjectId!.toString(),
+          chapterId: it.chapterId!.toString(),
+          topicId: it.topicId!.toString(),
+          ebookName: it.ebookTitle.trim().isEmpty ? 'Ebook' : it.ebookTitle,
+          subjectTitle: it.subjectTitle,
+          chapterTitle: it.chapterTitle,
+          topicTitle: it.topicTitle,
+        ),
+      ),
+    );
+  }
+
+  List<_ProductItem> get _filteredProducts {
+    if (_query.isEmpty) return _products;
+    return _products.where((p) => p.name.toLowerCase().contains(_query)).toList();
+  }
+
+  List<SavedContentItem> get _filteredItems {
+    if (_query.isEmpty) return _items;
+    return _items.where((it) => it.contentTitle.toLowerCase().contains(_query)).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final title = _serverTitle.isNotEmpty ? _serverTitle : widget.title;
+
+    return AppLayout(
+      title: title,
+      body: _selectedProduct == null ? _buildProductsView(theme) : _buildItemsView(theme),
+    );
+  }
+
+  // ---------------- UI: products ----------------
+  Widget _buildProductsView(ThemeData theme) {
+    if (_loadingProducts) {
+      return const ShimmerListLoader(itemCount: 7);
+    }
+
+    if (_errorProducts) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('লোড করা যায়নি', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              Text(_errorProductsMsg, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _loadProducts,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final list = _filteredProducts;
+
+    return Column(
+      children: [
+        _NiceSearchBar(
+          controller: _search,
+          hint: 'Search book...',
+        ),
+        const SizedBox(height: 10),
+
+        // header chip
+        Row(
+          children: [
+            _CountChip(icon: _modeIcon, text: '${list.length} books'),
+            const Spacer(),
+            IconButton(
+              onPressed: _loadProducts,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh',
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+        Expanded(
+          child: list.isEmpty
+              ? Center(
+            child: Text(
+              'কোনো প্রোডাক্ট পাওয়া যায়নি',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          )
+              : RefreshIndicator(
+            onRefresh: _loadProducts,
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+              itemCount: list.length,
+              itemBuilder: (context, i) {
+                final p = list[i];
+                return _NiceSelectCard(
+                  title: p.name,
+                  subtitle: 'Product ID: ${p.id}',
+                  leadingIcon: Icons.auto_stories_rounded,
+                  trailingIcon: _modeIcon,
+                  onTap: () => _loadItemsForProduct(p),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------- UI: items ----------------
+  Widget _buildItemsView(ThemeData theme) {
+    final p = _selectedProduct!;
+    final list = _filteredItems;
+
+    return Column(
+      children: [
+        // top row
+        Row(
+          children: [
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _selectedProduct = null;
+                  _items.clear();
+                  _search.clear();
+                  _query = '';
+                  _loadingItems = false;
+                  _errorItems = false;
+                  _errorItemsMsg = '';
+                });
+              },
+              icon: const Icon(Icons.arrow_back),
+            ),
+            Expanded(
+              child: Text(
+                p.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+              ),
+            ),
+            IconButton(
+              onPressed: _loadingItems ? null : () => _loadItemsForProduct(p),
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh',
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+        _NiceSearchBar(
+          controller: _search,
+          hint: 'Search question...',
+        ),
+        const SizedBox(height: 10),
+
+        Row(
+          children: [
+            _CountChip(icon: _modeIcon, text: '${list.length} items'),
+            const Spacer(),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        Expanded(
+          child: _loadingItems
+              ? const ShimmerListLoader(itemCount: 7)
+              : _errorItems
+              ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('লোড করা যায়নি',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  Text(_errorItemsMsg, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () => _loadItemsForProduct(p),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          )
+              : list.isEmpty
+              ? Center(
+            child: Text(
+              widget.mode == SavedListMode.bookmarks
+                  ? 'এই প্রোডাক্টে কোনো bookmark নেই'
+                  : 'এই প্রোডাক্টে কোনো flag নেই',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          )
+              : RefreshIndicator(
+            onRefresh: () => _loadItemsForProduct(p),
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+              itemCount: list.length,
+              itemBuilder: (context, i) {
+                final it = list[i];
+                final title = it.contentTitle.trim().isEmpty
+                    ? 'Question #${it.contentId ?? '-'}'
+                    : it.contentTitle.trim();
+
+                return _NiceItemCard(
+                  title: title,
+                  subtitle: _pathText(it),
+                  icon: _modeIcon,
+                  onTap: () => _openItem(it),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _pathText(SavedContentItem it) {
+    final parts = <String>[];
+    if (it.subjectTitle.trim().isNotEmpty) parts.add(it.subjectTitle.trim());
+    if (it.chapterTitle.trim().isNotEmpty) parts.add(it.chapterTitle.trim());
+    if (it.topicTitle.trim().isNotEmpty) parts.add(it.topicTitle.trim());
+    if (parts.isNotEmpty) return parts.join('  ›  ');
+
+    // fallback IDs (যদি আসে)
+    final ids = <String>[];
+    if (it.subjectId != null) ids.add('S:${it.subjectId}');
+    if (it.chapterId != null) ids.add('C:${it.chapterId}');
+    if (it.topicId != null) ids.add('T:${it.topicId}');
+    if (it.contentId != null) ids.add('Q:${it.contentId}');
+    return ids.isEmpty ? '—' : ids.join('  ');
+  }
+}
+
+// -----------------------------------------------------------------------------
+// UI widgets
+// -----------------------------------------------------------------------------
+class _NiceSearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+
+  const _NiceSearchBar({required this.controller, required this.hint});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: const Icon(Icons.search),
+        isDense: true,
+        filled: true,
+        fillColor: cs.surface.withOpacity(.6),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: theme.dividerColor.withOpacity(.2)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: theme.dividerColor.withOpacity(.2)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: cs.primary.withOpacity(.6)),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _CountChip({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: cs.primary.withOpacity(.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cs.primary.withOpacity(.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: cs.primary),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NiceSelectCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData leadingIcon;
+  final IconData trailingIcon;
+  final VoidCallback onTap;
+
+  const _NiceSelectCard({
+    required this.title,
+    required this.subtitle,
+    required this.leadingIcon,
+    required this.trailingIcon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.dividerColor.withOpacity(.14)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(leadingIcon, color: cs.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurface.withOpacity(.65),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: cs.primary.withOpacity(.12)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(trailingIcon, size: 18, color: cs.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      "View",
+                      style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.chevron_right, color: cs.onSurface.withOpacity(.55)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NiceItemCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _NiceItemCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.dividerColor.withOpacity(.14)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: cs.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle.isEmpty ? '—' : subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurface.withOpacity(.65),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: cs.primary.withOpacity(.12)),
+                ),
+                child: Icon(Icons.open_in_new, size: 18, color: cs.primary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// helpers
+// -----------------------------------------------------------------------------
+class _ProductItem {
+  final int id;
+  final String name;
+
+  const _ProductItem({required this.id, required this.name});
+}
+
+int _asInt(dynamic v) {
+  if (v == null) return 0;
+  if (v is int) return v;
+  return int.tryParse(v.toString()) ?? 0;
+}

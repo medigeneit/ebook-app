@@ -269,87 +269,109 @@ class _ProfilePageState extends State<ProfilePage> {
                   },
                 ),
                 _Tile(
-                  icon: Icons.receipt_long_outlined,
-                  label: 'Orders',
-                  onTap: () => _showSnack('Orders (TODO)'),
+                  icon: Icons.star_border,
+                  label: 'My Bookmarks',
+                  onTap: () {
+                    if (!isLoggedIn) {
+                      _showLoginSheet();
+                      return;
+                    }
+                    Navigator.pushNamed(context, '/my-bookmarks');
+                  },
                 ),
                 _Tile(
-                  icon: Icons.favorite_border,
-                  label: 'Wishlist',
-                  onTap: () => _showSnack('Wishlist (TODO / switch tab)'),
+                  icon: Icons.outlined_flag,
+                  label: 'My Flags',
+                  onTap: () {
+                    if (!isLoggedIn) {
+                      _showLoginSheet();
+                      return;
+                    }
+                    Navigator.pushNamed(context, '/my-flags');
+                  },
                 ),
-                _Tile(
-                  icon: Icons.location_on_outlined,
-                  label: 'Addresses',
-                  onTap: () => _showSnack('Addresses (TODO)'),
-                ),
-                _Tile(
-                  icon: Icons.credit_card,
-                  label: 'Payment methods',
-                  onTap: () => _showSnack('Payment methods (TODO)'),
-                ),
+                // _Tile(
+                //   icon: Icons.receipt_long_outlined,
+                //   label: 'Orders',
+                //   onTap: () => _showSnack('Orders (TODO)'),
+                // ),
+                // _Tile(
+                //   icon: Icons.favorite_border,
+                //   label: 'Wishlist',
+                //   onTap: () => _showSnack('Wishlist (TODO / switch tab)'),
+                // ),
+                // _Tile(
+                //   icon: Icons.location_on_outlined,
+                //   label: 'Addresses',
+                //   onTap: () => _showSnack('Addresses (TODO)'),
+                // ),
+                // _Tile(
+                //   icon: Icons.credit_card,
+                //   label: 'Payment methods',
+                //   onTap: () => _showSnack('Payment methods (TODO)'),
+                // ),
               ],
             ),
             const SizedBox(height: 12),
 
             // ---------- Preferences ----------
-            _SectionCard(
-              title: 'Preferences',
-              children: [
-                SwitchListTile.adaptive(
-                  value: pushNotifs,
-                  onChanged: (v) => setState(() => pushNotifs = v),
-                  title: const Text('Push notifications'),
-                  secondary: const _IconBubble(icon: Icons.notifications_outlined),
-                ),
-                _Tile(
-                  icon: Icons.translate,
-                  label: 'Language',
-                  trailing: const Text('English', style: TextStyle(color: Colors.grey)),
-                  onTap: () => _showSnack('Language picker (TODO)'),
-                ),
-                _Tile(
-                  icon: Icons.dark_mode_outlined,
-                  label: 'Theme',
-                  trailing: const Text('System', style: TextStyle(color: Colors.grey)),
-                  onTap: () => _showSnack('Theme chooser (TODO)'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // ---------- Support ----------
-            _SectionCard(
-              title: 'Support',
-              children: [
-                _Tile(
-                  icon: Icons.help_outline,
-                  label: 'Help Center',
-                  onTap: () => _showSnack('Help Center (TODO)'),
-                ),
-                _Tile(
-                  icon: Icons.chat_bubble_outline,
-                  label: 'Contact us',
-                  onTap: () => _showSnack('Contact form (TODO)'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            // _SectionCard(
+            //   title: 'Preferences',
+            //   children: [
+            //     SwitchListTile.adaptive(
+            //       value: pushNotifs,
+            //       onChanged: (v) => setState(() => pushNotifs = v),
+            //       title: const Text('Push notifications'),
+            //       secondary: const _IconBubble(icon: Icons.notifications_outlined),
+            //     ),
+            //     _Tile(
+            //       icon: Icons.translate,
+            //       label: 'Language',
+            //       trailing: const Text('English', style: TextStyle(color: Colors.grey)),
+            //       onTap: () => _showSnack('Language picker (TODO)'),
+            //     ),
+            //     _Tile(
+            //       icon: Icons.dark_mode_outlined,
+            //       label: 'Theme',
+            //       trailing: const Text('System', style: TextStyle(color: Colors.grey)),
+            //       onTap: () => _showSnack('Theme chooser (TODO)'),
+            //     ),
+            //   ],
+            // ),
+            // const SizedBox(height: 12),
+            //
+            // // ---------- Support ----------
+            // _SectionCard(
+            //   title: 'Support',
+            //   children: [
+            //     _Tile(
+            //       icon: Icons.help_outline,
+            //       label: 'Help Center',
+            //       onTap: () => _showSnack('Help Center (TODO)'),
+            //     ),
+            //     _Tile(
+            //       icon: Icons.chat_bubble_outline,
+            //       label: 'Contact us',
+            //       onTap: () => _showSnack('Contact form (TODO)'),
+            //     ),
+            //   ],
+            // ),
+            // const SizedBox(height: 12),
 
             // ---------- About ----------
             _SectionCard(
               title: 'About',
               children: [
-                const _TileStatic(
-                  icon: Icons.privacy_tip_outlined,
-                  label: 'Privacy Policy',
-                  trailing: Icon(Icons.open_in_new, size: 18),
-                ),
-                const _TileStatic(
-                  icon: Icons.description_outlined,
-                  label: 'Terms & Conditions',
-                  trailing: Icon(Icons.open_in_new, size: 18),
-                ),
+                // const _TileStatic(
+                //   icon: Icons.privacy_tip_outlined,
+                //   label: 'Privacy Policy',
+                //   trailing: Icon(Icons.open_in_new, size: 18),
+                // ),
+                // const _TileStatic(
+                //   icon: Icons.description_outlined,
+                //   label: 'Terms & Conditions',
+                //   trailing: Icon(Icons.open_in_new, size: 18),
+                // ),
                 _TileStatic(
                   icon: Icons.info_outline,
                   label: 'App version',

@@ -29,6 +29,8 @@ class EbookContentsPage extends StatefulWidget {
   final String subjectTitle;
   final String chapterTitle;
   final String topicTitle;
+  final int? focusContentId;
+
 
   const EbookContentsPage({
     super.key,
@@ -40,6 +42,7 @@ class EbookContentsPage extends StatefulWidget {
     this.subjectTitle = '',
     this.chapterTitle = '',
     this.topicTitle = '',
+    this.focusContentId = 0,
   });
 
   @override
@@ -79,6 +82,10 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
 
   final Set<int> bookmarkBusy = {}; // contentId busy
   final Set<int> flagBusy = {};
+
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _focusKey = GlobalKey();
+
 
 
   @override
@@ -129,6 +136,18 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
         isError = false;
       });
       _prefetchBookmarkFlag(ebookContents);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (widget.focusContentId == null) return;
+        final ctx = _focusKey.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(
+            ctx,
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOut,
+            alignment: 0.2,
+          );
+        }
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -528,6 +547,9 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                   flagged: flagged,
                   bookmarkBusy: bookmarkBusy,
                   flagBusy: flagBusy,
+                  scrollController: _scrollController,
+                  focusContentId: widget.focusContentId,
+                  focusKey: _focusKey,
                   onTapBookmark: (cid) => () => toggleBookmark(cid),
                   onTapFlag: (cid) => () => toggleFlag(cid),
                   onToggleAnswer: (cid) => () {

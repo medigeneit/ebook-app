@@ -180,18 +180,27 @@ class _UnderlineQuestionDialogBodyState
         Row(
           children: [
             Expanded(
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+              child: SizedBox(
+                height: 40, // ✅ এখানে button height
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    minimumSize: const Size(0, 32), // ✅ default min height override
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap, // ✅ extra space remove
+                    visualDensity: VisualDensity.compact, // ✅ আরও compact
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                    width: 14,
+                    height: 14, // ✅ spinner realistic size
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                      : const Text(
+                    'Save',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
                 ),
-                child: _saving
-                    ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-                    : const Text('Save'),
               ),
             ),
             const SizedBox(width: 12),
@@ -199,7 +208,7 @@ class _UnderlineQuestionDialogBodyState
               child: OutlinedButton(
                 onPressed: _saving ? null : () => Navigator.pop(context),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
                 child: const Text('Close'),
               ),

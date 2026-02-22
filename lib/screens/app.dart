@@ -8,6 +8,8 @@ import 'package:ebook_project/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:in_app_update/in_app_update.dart';
+import 'package:ebook_project/state/search_state.dart';
+import 'package:ebook_project/screens/search_page.dart';
 
 import '../api/api_service.dart';
 import '../components/app_layout.dart';
@@ -66,6 +68,7 @@ class MyApp extends StatelessWidget {
         '/my-bookmarks': (_) => const MyBookmarksPage(),
         '/my-flags': (_) => const MyFlagsPage(),
         '/my-notes': (_) => const MyNotesPage(),
+        '/search': (_) => const SearchPage(),
       },
       navigatorObservers: [routeObserver],
     );
@@ -185,6 +188,11 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
         _practiceAvailability.clear();
         _practiceFutures.clear();
       });
+      SearchState.setItems(
+        ebooks
+            .map((e) => SearchItem(title: e.name, subtitle: 'All Ebooks'))
+            .toList(),
+      );
 
       for (final ebook in ebooks) {
         _ensurePracticeAvailability(ebook);
@@ -281,31 +289,56 @@ class _MyHomePageState extends State<MyHomePage> with RouteAware {
   }
 
   Widget _buildLoadedBody() {
-    final pendingEbooks = ebooks.where((ebook) => !_isActive(ebook)).toList();
+    return ValueListenableBuilder<String>(
+      valueListenable: SearchState.query,
+      builder: (context, q, _) {
+        final query = q.trim().toLowerCase();
+        final filtered = query.isEmpty
+            ? ebooks
+            : ebooks
+                .where((e) => e.name.toLowerCase().contains(query))
+                .toList();
+        final pendingEbooks =
+            filtered.where((ebook) => !_isActive(ebook)).toList();
 
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // _buildDeviceVerificationCard(),
-          // const SizedBox(height: 12),
-          if (pendingEbooks.isNotEmpty) ...[
-            _buildPurchaseSection(pendingEbooks),
-            const SizedBox(height: 12),
-          ],
-          Expanded(
-            child: EbookGrid(
-              ebooks: ebooks,
-              isLoading: isLoading,
-              practiceAvailability: _practiceAvailability,
-              onCardTap: _handleHomeCardTap,
-              onBuyTap: _openPurchaseLink,
-              showStatusBadge: false,
+        if (filtered.isEmpty) {
+          return Center(
+            child: Text(
+              'No results for "$q"',
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
             ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // _buildDeviceVerificationCard(),
+              // const SizedBox(height: 12),
+              if (pendingEbooks.isNotEmpty) ...[
+                _buildPurchaseSection(pendingEbooks),
+                const SizedBox(height: 12),
+              ],
+              Expanded(
+                child: EbookGrid(
+                  ebooks: filtered,
+                  isLoading: isLoading,
+                  practiceAvailability: _practiceAvailability,
+                  onCardTap: _handleHomeCardTap,
+                  onBuyTap: _openPurchaseLink,
+                  showStatusBadge: false,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

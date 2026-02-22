@@ -141,19 +141,8 @@ class AppLayout extends StatelessWidget {
   }
 
   Future<void> _handleNavTap(BuildContext context, int index) async {
-    // ✅ Search: open search page (keep local data)
-    if (index == 3) {
-      final prev = NavState.index.value;
-      NavState.index.value = 3;
-      await Navigator.pushNamed(context, '/search');
-      if (NavState.index.value == 3) {
-        NavState.index.value = prev;
-      }
-      return;
-    }
-
     // ✅ Website ট্যাব হলে: ব্রাউজার ওপেন, Nav state আগেরটাই থাকবে
-    if (index == 4) {
+    if (index == 3) {
       HapticFeedback.selectionClick();
       await _openWebsite();
       return;
@@ -268,18 +257,10 @@ class _AnimatedNavBar extends StatelessWidget {
                   ),
                   Expanded(
                     child: _NavItem(
-                      active: selectedIndex == 3,
-                      label: 'Search',
-                      icon: Icons.search_rounded,
-                      onTap: () => onSelect(3),
-                    ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
                       active: false, // ✅ website এ active দেখাতে না চাইলে false রাখুন
                       label: 'Website',
                       icon: Icons.public_rounded,
-                      onTap: () => onSelect(4),
+                      onTap: () => onSelect(3),
                     ),
                   ),
             ],

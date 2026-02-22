@@ -10,7 +10,6 @@ import '../screens/ebook_detail.dart';
 import '../utils/token_store.dart';
 import '../utils/update_manager.dart';
 import '../screens/subscription_page.dart';
-import '../state/search_state.dart';
 
 class EbookLibrarySection extends StatefulWidget {
   const EbookLibrarySection({super.key});
@@ -46,11 +45,6 @@ class _EbookLibrarySectionState extends State<EbookLibrarySection> {
         _practiceFutures.clear();
         _isLoading = false;
       });
-      SearchState.setItems(
-        _ebooks
-            .map((e) => SearchItem(title: e.name, subtitle: 'My Ebooks'))
-            .toList(),
-      );
       for (final ebook in _ebooks) {
         _ensurePracticeAvailability(ebook);
       }
@@ -70,39 +64,14 @@ class _EbookLibrarySectionState extends State<EbookLibrarySection> {
       );
     }
 
-    return ValueListenableBuilder<String>(
-      valueListenable: SearchState.query,
-      builder: (context, q, _) {
-        final query = q.trim().toLowerCase();
-        final filtered = query.isEmpty
-            ? _ebooks
-            : _ebooks
-                .where((e) => e.name.toLowerCase().contains(query))
-                .toList();
-
-        if (filtered.isEmpty) {
-          return Center(
-            child: Text(
-              'No results for "$q"',
-              style: const TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.black45,
-              ),
-            ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: EbookGrid(
-            ebooks: filtered,
-            isLoading: _isLoading,
-            practiceAvailability: _practiceAvailability,
-            onCardTap: _handleCardTap,
-          ),
-        );
-      },
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: EbookGrid(
+        ebooks: _ebooks,
+        isLoading: _isLoading,
+        practiceAvailability: _practiceAvailability,
+        onCardTap: _handleCardTap,
+      ),
     );
   }
 

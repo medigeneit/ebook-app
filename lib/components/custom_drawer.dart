@@ -1,6 +1,7 @@
 import 'package:ebook_project/api/api_service.dart';
 import 'package:ebook_project/api/routes.dart';
 import 'package:ebook_project/services/device_guard.dart';
+import 'package:ebook_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -49,95 +50,92 @@ class _CustomDrawerState extends State<CustomDrawer> {
   Widget build(BuildContext context) {
     String? currentRoute = ModalRoute.of(context)?.settings.name;
     return Drawer(
-      child: Column(
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.blue.shade600,
-                  Colors.blue.shade800,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.primaryGradientDeep().colors.first.withOpacity(0.08),
+              Colors.white,
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradientDeep(),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x26000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 10),
+                  ),
                 ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
               ),
-            ),
-            child: Align(
-              alignment: Alignment.center,
-              // child: Text(
-              //   widget.title,
-              //   style: const TextStyle(
-              //     color: Colors.white,
-              //     fontSize: 24,
-              //     fontWeight: FontWeight.bold,
-              //   ),
-              // ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 26.0),
-                child: Image.asset(
-                  'assets/bm-logo-white.png',
-                  height: 80,
-                  fit: BoxFit.contain,
+              child: Align(
+                alignment: Alignment.center,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 26.0),
+                  child: Image.asset(
+                    'assets/bm-logo-white.png',
+                    height: 80,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
             ),
-          ),
-          // if(currentRoute != '/')
-          buildDrawerItem(
-              icon: FontAwesomeIcons.homeAlt,
-              label: 'Home',
-              onTap: currentRoute != '/' ? widget.onHomeTap : () {},
-              route: '/'),
-          // if(currentRoute != '/profile')
-          buildDrawerItem(
-              icon: FontAwesomeIcons.user,
-              label: 'User',
-              onTap: currentRoute != '/profile' ? widget.onProfileTap : () {},
-              route: '/profile'),
-          buildDrawerItem(
-            icon: FontAwesomeIcons.cog,
-            label: 'Settings',
-            onTap: widget.onSettingsTap,
-          ),
-          if (widget.onDeviceVerificationTap != null)
+            // if(currentRoute != '/')
             buildDrawerItem(
-              icon: FontAwesomeIcons.shieldAlt,
-              label: 'Device Verification',
-              onTap: () async {
-                final verified = await DeviceGuard.I.isVerified();
-                if (verified) {
-                  // widget.onDeviceVerificationTap!();
-                  Navigator.pushNamed(context, '/device-info');
-                } else {
-                  Navigator.of(context).pop();
-                  // widget.onDeviceVerificationTap!();
-                  Navigator.pushNamed(
-                    context,
-                    '/device-verification',
-                    arguments: {'redirectTo': '/device-info'},
-                  );
-                }
-              }
-//               () {
-//                 Navigator.of(context).pop();
-//                 widget.onDeviceVerificationTap!();
-//               }
-              ,
-              route: '/device-verification',
-            ),
-          if (!isLoggedIn)
+                icon: FontAwesomeIcons.homeAlt,
+                label: 'Home',
+                onTap: currentRoute != '/' ? widget.onHomeTap : () {},
+                route: '/'),
+            // if(currentRoute != '/profile')
             buildDrawerItem(
-              icon: FontAwesomeIcons.signInAlt,
-              label: 'Login',
-              onTap: widget.onLoginTap,
-            ),
-          if (isLoggedIn)
-            buildDrawerItem(
-              icon: FontAwesomeIcons.signOutAlt,
-              label: 'Logout',
-              onTap: () async => await ApiService().logout(context),
-            ),
-        ],
+                icon: FontAwesomeIcons.user,
+                label: 'Profile',
+                onTap: currentRoute != '/profile' ? widget.onProfileTap : () {},
+                route: '/profile'),
+            // buildDrawerItem(
+            //   icon: FontAwesomeIcons.cog,
+            //   label: 'Settings',
+            //   onTap: widget.onSettingsTap,
+            // ),
+            if (widget.onDeviceVerificationTap != null)
+              buildDrawerItem(
+                icon: FontAwesomeIcons.shieldAlt,
+                label: 'Device Verification',
+                onTap: () async {
+                  final verified = await DeviceGuard.I.isVerified();
+                  if (verified) {
+                    Navigator.pushNamed(context, '/device-info');
+                  } else {
+                    Navigator.of(context).pop();
+                    Navigator.pushNamed(
+                      context,
+                      '/device-verification',
+                      arguments: {'redirectTo': '/device-info'},
+                    );
+                  }
+                },
+                route: '/device-info',
+              ),
+            if (!isLoggedIn)
+              buildDrawerItem(
+                icon: FontAwesomeIcons.signInAlt,
+                label: 'Login',
+                onTap: widget.onLoginTap,
+              ),
+            if (isLoggedIn)
+              buildDrawerItem(
+                icon: FontAwesomeIcons.signOutAlt,
+                label: 'Logout',
+                onTap: () async => await ApiService().logout(context),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -149,28 +147,30 @@ class _CustomDrawerState extends State<CustomDrawer> {
       String? route}) {
     String? currentRoute = ModalRoute.of(context)?.settings.name;
     bool isSelected = (route != null && route == currentRoute);
-    return ListTile(
-      leading: Icon(
-        icon,
-        size: 20,
-        // color: Colors.blue[700]
-        color: isSelected ? Colors.white : Colors.blue[700],
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: isSelected ? Colors.white : Colors.black,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          size: 20,
+          color: isSelected ? Colors.white : AppColors.blue600,
         ),
+        title: Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : AppColors.textPrimary,
+          ),
+        ),
+        horizontalTitleGap: 8,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        tileColor: isSelected ? AppColors.blue600 : null,
+        onTap: onTap,
       ),
-      horizontalTitleGap: 8,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      tileColor: isSelected ? Colors.blue[700] : null,
-      onTap: onTap,
     );
   }
 }

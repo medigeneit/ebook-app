@@ -236,14 +236,14 @@ class _EbookGridCard extends StatelessWidget {
         height: 32,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFFEFFAF6),
+            gradient: AppColors.primaryGradientDeep(),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0x33008774)),
+            border: Border.all(color: const Color(0x1A000000)),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x12000000),
-                blurRadius: 10,
-                offset: Offset(0, 6),
+                color: Color(0x1F000000),
+                blurRadius: 12,
+                offset: Offset(0, 8),
               ),
             ],
           ),
@@ -264,13 +264,13 @@ class _EbookGridCard extends StatelessWidget {
                       width: 22,
                       height: 22,
                       decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradientSoft(),
+                        color: Colors.white.withOpacity(0.22),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.shopping_cart_checkout_rounded,
                         size: 14,
-                        color: AppColors.onGradient,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -279,7 +279,7 @@ class _EbookGridCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                         letterSpacing: 0.2,
                       ),
                     ),
@@ -287,7 +287,7 @@ class _EbookGridCard extends StatelessWidget {
                     const Icon(
                       Icons.arrow_forward_rounded,
                       size: 16,
-                      color: AppColors.textPrimary,
+                      color: Colors.white,
                     ),
                   ],
                 ),

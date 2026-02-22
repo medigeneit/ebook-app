@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:ebook_project/models/ebook_content.dart';
 import 'package:ebook_project/components/contents/image_with_placeholder.dart';
+import 'package:ebook_project/theme/app_colors.dart';
 
 import '../../presentation/screens/question_page_with_zoom.dart';
 
@@ -64,7 +65,7 @@ class ContentCard extends StatelessWidget {
       style: {
         "b": Style(
           fontSize: FontSize(14.5),
-          lineHeight: LineHeight.number(1.45),
+          lineHeight: LineHeight.number(1.30),
         )
       },
     );
@@ -85,8 +86,6 @@ class ContentCard extends StatelessWidget {
           color: isFlagged ? Colors.red.shade600 : Colors.grey.shade600,
           onTap: onTapFlag,
         ),
-
-        /// ✅ edit icon (Note + Underline)
         if (onTapEdit != null) ...[
           const SizedBox(width: 4),
           _HeaderIcon(
@@ -104,34 +103,19 @@ class ContentCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+        padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ title + icons
-            if (content.type == 3) ...[
-              Row(
-                children: [
-                  const Expanded(child: SizedBox.shrink()),
-                  headerIcons,
-                ],
-              ),
-              const SizedBox(height: 8),
-              titleWidget,
-              const SizedBox(height: 8),
-              headerIcons,
-            ] else ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(child: titleWidget),
-                  const SizedBox(width: 8),
-                  headerIcons,
-                ],
-              ),
-            ],
+            // ✅ icons on top, title on next line
+            Align(
+              alignment: Alignment.centerRight,
+              child: headerIcons,
+            ),
+            const SizedBox(height: 4),
+            titleWidget,
 
-            const SizedBox(height: 6),
+            // const SizedBox(height: 4),
 
             OptionList(
               content: content,
@@ -494,22 +478,27 @@ class _PrimaryPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 44,
+      height: 36,
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isActive ? Colors.blue[800] : Colors.blue[500],
+          backgroundColor: isActive ? AppColors.primaryDeep : cs.primary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
           ),
-          elevation: isActive ? 2 : 0,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 13, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
           overflow: TextOverflow.ellipsis,
         ),
       ),

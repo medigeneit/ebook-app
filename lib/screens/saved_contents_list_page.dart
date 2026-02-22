@@ -290,11 +290,18 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
   // open item
   // ---------------------------------------
   void _openItem(SavedContentItem it) {
+    // notes এ ট্যাপ করলে শুধু BottomSheet দেখাবে
     if (widget.mode == SavedListMode.notes) {
       _openNoteSheet(it);
       return;
     }
 
+    // bookmarks/flags => direct open content
+    _openContentPage(it);
+  }
+
+  // ✅ নতুন: কন্টেন্ট পেজ ওপেন করার আলাদা মেথড
+  void _openContentPage(SavedContentItem it) {
     if (!it.canOpenContent) {
       _snack('এই আইটেমে subject/chapter/topic/content id নাই। Backend থেকে id গুলো পাঠালে direct open হবে।');
       return;
@@ -397,10 +404,14 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: FilledButton.icon(
+                        // ✅ ফিক্স: এখানে _openItem না, _openContentPage কল হবে
                         onPressed: it.canOpenContent
                             ? () {
                           Navigator.pop(context);
-                          _openItem(it);
+                          Future.microtask(() {
+                            if (!mounted) return;
+                            _openContentPage(it);
+                          });
                         }
                             : null,
                         icon: const Icon(Icons.open_in_new),

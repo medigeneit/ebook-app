@@ -16,10 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 LinearGradient appPrimaryGradient() => LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [
-    AppColors.blueShade600,
-    AppColors.blueShade800,
-  ],
+  colors: AppColors.primaryGradientDeep().colors,
 );
 
 /// ------------------------------
@@ -42,10 +39,10 @@ class GradientIcon extends StatelessWidget {
     if (!active) {
       return Icon(icon, size: size, color: AppColors.slate500); // slate-500
     }
-    return ShaderMask(
-      shaderCallback: (rect) => appPrimaryGradient().createShader(rect),
-      blendMode: BlendMode.srcIn,
-      child: Icon(icon, size: size, color: Colors.white),
+    return Icon(
+      icon,
+      size: size,
+      color: AppColors.primaryDeep,
     );
   }
 }
@@ -221,43 +218,19 @@ class _AnimatedNavBar extends StatelessWidget {
         child: Container(
           height: 66,
           decoration: BoxDecoration(
-            color: cs.surface.withOpacity(0.95),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: cs.outlineVariant.withOpacity(0.35)),
+            color: cs.surface.withOpacity(0.98),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 18,
-                offset: Offset(0, 10),
+                color: Color(0x1A000000),
+                blurRadius: 22,
+                offset: Offset(0, 12),
               ),
             ],
           ),
-          child: Stack(
+          child: Row(
             children: [
-              AnimatedAlign(
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                alignment: _alignForIndex(selectedIndex),
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 180),
-                  opacity: 1,
-                  child: Padding(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                    child: Container(
-                      width: _itemWidth(context),
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: AppColors.blueShade600.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              Row(
-                children: [
                   Expanded(
                     child: _NavItem(
                       active: selectedIndex == 0,
@@ -290,8 +263,6 @@ class _AnimatedNavBar extends StatelessWidget {
                       onTap: () => onSelect(3),
                     ),
                   ),
-                ],
-              ),
             ],
           ),
         ),
@@ -299,18 +270,6 @@ class _AnimatedNavBar extends StatelessWidget {
     );
   }
 
-  Alignment _alignForIndex(int i) {
-    // 4 items => -1, -0.33, 0.33, 1
-    if (i == 0) return const Alignment(-1.0, 0);
-    if (i == 1) return const Alignment(-0.33, 0);
-    if (i == 2) return const Alignment(0.33, 0);
-    return const Alignment(1.0, 0);
-  }
-
-  double _itemWidth(BuildContext context) {
-    final w = MediaQuery.of(context).size.width - (12 + 12);
-    return (w / 4) - 12;
-  }
 }
 
 class _NavItem extends StatelessWidget {
@@ -358,7 +317,7 @@ class _NavItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-                  color: active ? cs.primary : cs.onSurfaceVariant,
+                  color: active ? AppColors.primaryDeep : cs.onSurfaceVariant,
                   letterSpacing: 0.2,
                 ),
                 child: Text(label),

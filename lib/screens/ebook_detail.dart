@@ -2,6 +2,7 @@ import 'package:ebook_project/api/api_service.dart';
 import 'package:ebook_project/components/app_layout.dart';
 import 'package:ebook_project/components/shimmer_ebook_detail_loader.dart';
 import 'package:ebook_project/screens/ebook_subjects.dart';
+import 'package:ebook_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -295,44 +296,48 @@ class _EbookDetailPageState extends State<EbookDetailPage> {
                   if (!isExpired)
                     SizedBox(
                       height: _ctaHeight,
-                      child: ElevatedButton(
-                        onPressed: () => _openSubjects(practice: false),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0c4a6e),
-                          padding:
-                          const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradientDeep(),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x1F000000),
+                                blurRadius: 12,
+                                offset: Offset(0, 8),
+                              ),
+                            ],
                           ),
-                        ).copyWith(
-                          backgroundColor:
-                          MaterialStateProperty.resolveWith<Color>(
-                                (Set<MaterialState> states) {
-                              if (states.contains(MaterialState.pressed)) {
-                                return const Color.fromARGB(255, 8, 140, 216)
-                                    .withOpacity(0.5);
-                              } else if (states.contains(MaterialState.hovered)) {
-                                return const Color.fromARGB(255, 8, 140, 216)
-                                    .withOpacity(0.8);
-                              }
-                              return const Color.fromARGB(255, 12, 128, 196);
-                            },
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () => _openSubjects(practice: false),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8,
+                                horizontal: 12,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(
+                                    FontAwesomeIcons.solidHandPointRight,
+                                    color: Colors.white,
+                                    size: 30,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Go to Subjects',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(
-                              FontAwesomeIcons.solidHandPointRight,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Go to Subjects',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ],
                         ),
                       ),
                     ),

@@ -4,7 +4,8 @@ class AppColors {
   AppColors._();
 
   // Brand
-  static const Color primary = Color(0xFF3B82F6); // Blue 500
+  static const Color primary = Color(0xFF2563EB); // Blue 600 (deeper)
+  static const Color primaryDeep = Color(0xFF1D4ED8); // Blue 700
   static const Color secondary = Color(0xFF6366F1); // Indigo 500
   static const Color accent = Color(0xFF10B981); // Emerald 500
 
@@ -229,6 +230,12 @@ class AppColors {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [blue600, blue800],
+      );
+
+  static LinearGradient primaryGradientDeep() => const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF1D4ED8), Color(0xFF0B3B8F)],
       );
 
   static LinearGradient primaryGradientSoft() => LinearGradient(

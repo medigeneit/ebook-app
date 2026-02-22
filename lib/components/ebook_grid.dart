@@ -303,16 +303,10 @@ class _EbookGridCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.glassFill,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x0F000000)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 14,
-            offset: Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: AppColors.glassBorder),
+        boxShadow: AppColors.glassShadow,
       ),
       child: Material(
         color: Colors.transparent,

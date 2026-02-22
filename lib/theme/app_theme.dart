@@ -15,7 +15,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: AppColors.bg,
+      scaffoldBackgroundColor: const Color(0xFFF5F7FB),
       textTheme: AppTypography.textTheme,
       appBarTheme: const AppBarTheme(
         elevation: 0,
@@ -57,7 +57,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.primaryDeep,
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
           shape:
@@ -66,7 +66,7 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: AppColors.glassFill,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         shadowColor: const Color(0x1F000000),

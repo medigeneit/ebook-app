@@ -4,6 +4,7 @@ import 'package:ebook_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:ui';
 
 import 'custom_drawer.dart';
 import 'package:ebook_project/state/nav_state.dart';
@@ -86,8 +87,17 @@ class AppLayout extends StatelessWidget {
               ),
             ),
             iconTheme: const IconThemeData(color: Colors.white),
-            flexibleSpace: Container(
-              decoration: BoxDecoration(gradient: appPrimaryGradient()),
+            flexibleSpace: ClipRect(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(decoration: BoxDecoration(gradient: appPrimaryGradient())),
+                  BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: Container(color: const Color(0x0DFFFFFF)),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -218,52 +228,58 @@ class _AnimatedNavBar extends StatelessWidget {
         child: Container(
           height: 66,
           decoration: BoxDecoration(
-            color: cs.surface.withOpacity(0.98),
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: cs.outlineVariant.withOpacity(0.45)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1A000000),
-                blurRadius: 22,
-                offset: Offset(0, 12),
-              ),
-            ],
           ),
-          child: Row(
-            children: [
-                  Expanded(
-                    child: _NavItem(
-                      active: selectedIndex == 0,
-                      label: 'Home',
-                      icon: Icons.home_rounded,
-                      onTap: () => onSelect(0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.glassFill,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: AppColors.glassBorder),
+                  boxShadow: AppColors.glassShadow,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _NavItem(
+                        active: selectedIndex == 0,
+                        label: 'Home',
+                        icon: Icons.home_rounded,
+                        onTap: () => onSelect(0),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
-                      active: selectedIndex == 1,
-                      label: 'My Ebooks',
-                      icon: Icons.auto_stories_rounded,
-                      onTap: () => onSelect(1),
+                    Expanded(
+                      child: _NavItem(
+                        active: selectedIndex == 1,
+                        label: 'My Ebooks',
+                        icon: Icons.auto_stories_rounded,
+                        onTap: () => onSelect(1),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
-                      active: selectedIndex == 2,
-                      label: 'Profile',
-                      icon: Icons.account_circle_rounded,
-                      onTap: () => onSelect(2),
+                    Expanded(
+                      child: _NavItem(
+                        active: selectedIndex == 2,
+                        label: 'Profile',
+                        icon: Icons.account_circle_rounded,
+                        onTap: () => onSelect(2),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
-                      active: false, // ✅ website এ active দেখাতে না চাইলে false রাখুন
-                      label: 'Website',
-                      icon: Icons.public_rounded,
-                      onTap: () => onSelect(3),
+                    Expanded(
+                      child: _NavItem(
+                        active: false, // ✅ website এ active দেখাতে না চাইলে false রাখুন
+                        label: 'Website',
+                        icon: Icons.public_rounded,
+                        onTap: () => onSelect(3),
+                      ),
                     ),
-                  ),
-            ],
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

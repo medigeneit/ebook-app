@@ -99,9 +99,10 @@ class ContentCard extends StatelessWidget {
     );
 
     return Card(
-      elevation: 1.5,
+      elevation: 0,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
         child: Column(
@@ -478,28 +479,53 @@ class _PrimaryPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final fg = isActive ? Colors.white : AppColors.primaryDeep;
     return SizedBox(
-      height: 36,
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isActive ? AppColors.primaryDeep : cs.primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+      height: 34,
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: isActive ? AppColors.primaryGradientDeep() : null,
+            color: isActive ? null : const Color(0xE6F1F5FF),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isActive ? Colors.transparent : const Color(0x663B82F6),
+            ),
+            boxShadow: isActive
+                ? const [
+                    BoxShadow(
+                      color: Color(0x1F000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 6),
+                    ),
+                  ]
+                : const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
           ),
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
           ),
-          overflow: TextOverflow.ellipsis,
         ),
       ),
     );

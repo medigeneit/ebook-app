@@ -202,11 +202,7 @@ class AppColors {
   );
 
   /// শ্যাডো একটু নরম + রিম হালকা হাইলাইট
-  static const List<BoxShadow> glassShadow = [
-    BoxShadow(color: Color(0x33000000), blurRadius: 18, offset: Offset(0, 10)),
-  ];
-
-  static const Color blue600 = Color(0xFF2563EB); // Colors.blue.shade600
+    static const Color blue600 = Color(0xFF2563EB); // Colors.blue.shade600
   static const Color blue800 = Color(0xFF1E40AF); // Colors.blue.shade800
 
   static final Color blueShade600 =
@@ -262,5 +258,17 @@ class AppColors {
   static const Color text = Color(0xFF0F172A); // slate-900 type
 
   static const Color blue900 = Color(0xFF0C4A6E); // তোমার UI তে যেটা ব্যবহার করছো
+
+  // --- Glassmorphism ---
+  static const Color glassFill = Color(0x66FFFFFF); // 40% white
+  static const Color glassBorder = Color(0x3DFFFFFF); // 24% white
+  static const Color glassHighlight = Color(0x0FFFFFFF); // 6% white
+  static const List<BoxShadow> glassShadow = [
+    BoxShadow(
+      color: Color(0x14000000),
+      blurRadius: 20,
+      offset: Offset(0, 12),
+    ),
+  ];
 
 }

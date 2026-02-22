@@ -3,6 +3,7 @@ import 'package:ebook_project/components/app_layout.dart';
 import 'package:ebook_project/components/shimmer_list_loader.dart';
 import 'package:ebook_project/models/saved_content_item.dart';
 import 'package:ebook_project/screens/ebook_contents.dart';
+import 'package:ebook_project/theme/app_colors.dart';
 import 'package:ebook_project/utils/token_store.dart';
 import 'package:flutter/material.dart';
 
@@ -351,10 +352,10 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: cs.primary.withOpacity(.10),
+                        color: AppColors.cardIconTint,
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(Icons.sticky_note_2_rounded, color: cs.primary, size: 22),
+                      child: Icon(Icons.sticky_note_2_rounded, color: AppColors.cardIconBlue, size: 22),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -372,7 +373,7 @@ class _SavedContentsListPageState extends State<SavedContentsListPage> {
                   Text(
                     _pathText(it),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurface.withOpacity(.65),
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -725,23 +726,25 @@ class _CountChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: cs.primary.withOpacity(.10),
+        color: AppColors.cardIconTint,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: cs.primary.withOpacity(.15)),
+        border: Border.all(color: AppColors.cardIconBlue.withOpacity(.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: cs.primary),
+          Icon(icon, size: 18, color: AppColors.cardIconBlue),
           const SizedBox(width: 6),
           Text(
             text,
-            style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
           ),
         ],
       ),
@@ -767,7 +770,6 @@ class _NiceSelectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
     return Card(
       elevation: 0,
@@ -787,10 +789,10 @@ class _NiceSelectCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(.10),
+                  color: AppColors.cardIconTint,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(leadingIcon, color: cs.primary),
+                child: Icon(leadingIcon, color: AppColors.cardIconBlue),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -807,7 +809,7 @@ class _NiceSelectCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurface.withOpacity(.65),
+                        color: AppColors.textSecondary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -818,20 +820,26 @@ class _NiceSelectCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(.08),
+                  color: AppColors.cardIconTint,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: cs.primary.withOpacity(.12)),
+                  border: Border.all(color: AppColors.cardIconBlue.withOpacity(.20)),
                 ),
                 child: Row(
                   children: [
-                    Icon(trailingIcon, size: 18, color: cs.primary),
+                    Icon(trailingIcon, size: 18, color: AppColors.cardIconBlue),
                     const SizedBox(width: 6),
-                    Text("View", style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900)),
+                    Text(
+                      "View",
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(Icons.chevron_right, color: cs.onSurface.withOpacity(.55)),
+              Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
         ),
@@ -877,10 +885,10 @@ class _NiceItemCard extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(.10),
+                  color: AppColors.cardIconTint,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, color: cs.primary, size: 20),
+                child: Icon(icon, color: AppColors.cardIconBlue, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -899,7 +907,7 @@ class _NiceItemCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurface.withOpacity(.65),
+                        color: AppColors.textSecondary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -910,11 +918,11 @@ class _NiceItemCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(.08),
+                  color: AppColors.cardIconTint,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: cs.primary.withOpacity(.12)),
+                  border: Border.all(color: AppColors.cardIconBlue.withOpacity(.20)),
                 ),
-                child: Icon(Icons.open_in_new, size: 18, color: cs.primary),
+                child: Icon(Icons.open_in_new, size: 18, color: AppColors.cardIconBlue),
               ),
             ],
           ),

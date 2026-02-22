@@ -354,7 +354,15 @@ class _GridCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 30, color: const Color(0xFF0c4a6e)),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.cardIconTint,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, size: 26, color: AppColors.cardIconBlue),
+            ),
             const SizedBox(height: 8),
 
             // ✅ overflow fix

@@ -263,4 +263,8 @@ class AppColors {
 
   static const Color blue900 = Color(0xFF0C4A6E); // তোমার UI তে যেটা ব্যবহার করছো
 
+  // --- Grid card icon styling ---
+  static const Color cardIconBlue = Color(0xFF0B56D6); // slightly deeper brand blue
+  static const Color cardIconTint = Color(0x1F3B82F6); // ~12% of primary
+
 }

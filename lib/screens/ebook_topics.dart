@@ -463,7 +463,15 @@ class _GridCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 30, color: AppColors.blue900),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.cardIconTint,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, size: 26, color: AppColors.cardIconBlue),
+            ),
             const SizedBox(height: 8),
             Expanded(
               child: Center(

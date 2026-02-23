@@ -363,6 +363,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           id: t.id.toString(),
           title: t.title,
           locked: t.locked == true,
+          hasPractice: t.hasPractice,
           type: SidebarItemType.topic,
           hasChildren: false,
           meta: {
@@ -388,7 +389,8 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
       final chapterId = it.meta["chapterId"] ?? "";
       final topicId = it.id;
 
-      if (it.title.trim().toLowerCase() == "practice questions") {
+      if (it.title.trim().toLowerCase() == "practice questions" &&
+          it.hasPractice == true) {
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -400,6 +402,12 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
               ebookName: widget.ebookName,
             ),
           ),
+        );
+        return;
+      }
+      if (it.title.trim().toLowerCase() == "practice questions") {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Practice questions not available')),
         );
         return;
       }

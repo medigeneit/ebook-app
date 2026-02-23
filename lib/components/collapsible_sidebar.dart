@@ -9,6 +9,7 @@ class SidebarItem {
   final String id;
   final String title;
   final bool locked;
+  final bool hasPractice;
 
   final SidebarItemType type;
   final bool hasChildren;
@@ -21,6 +22,7 @@ class SidebarItem {
     required this.title,
     required this.type,
     this.locked = false,
+    this.hasPractice = false,
     this.hasChildren = false,
     this.meta = const {},
   });

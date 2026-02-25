@@ -109,18 +109,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 label: 'Device Verification',
                 onTap: () async {
                   final verified = await DeviceGuard.I.isVerified();
-                  if (verified) {
-                    Navigator.pushNamed(context, '/device-info');
-                  } else {
-                    Navigator.of(context).pop();
-                    Navigator.pushNamed(
-                      context,
-                      '/device-verification',
-                      arguments: {'redirectTo': '/device-info'},
-                    );
-                  }
+                  Navigator.of(context).pop();
+                  Navigator.pushNamed(
+                    context,
+                    '/device-verification',
+                    arguments: {'verified': verified},
+                  );
                 },
-                route: '/device-info',
+                route: '/device-verification',
               ),
             if (!isLoggedIn)
               buildDrawerItem(

@@ -1,5 +1,4 @@
 import 'package:ebook_project/components/ebook_grid.dart';
-import 'package:ebook_project/screens/device_verification/device_info_screen.dart';
 import 'package:ebook_project/screens/my_notes_page.dart';
 import 'package:ebook_project/screens/profile.dart';
 import 'package:ebook_project/screens/splash.dart';
@@ -15,12 +14,10 @@ import '../components/shimmer_ebook_card_loader.dart';
 import '../models/all_ebook.dart';
 import '../models/ebook.dart';
 import '../utils/token_store.dart';
-import 'device_verification/add.dart';
-import 'device_verification/change.dart';
-import 'device_verification/index.dart';
-import 'device_verification/replace.dart';
+import 'device_verification/device_verification_screen.dart';
+import 'device_verification/device_verification_otp_screen.dart';
+import 'device_verification/device_verification_reason_submit_screen.dart';
 import 'ebook_detail.dart';
-import 'device_verification.dart';
 import 'login.dart';
 import 'my_ebooks_page.dart';
 import 'subscription_page.dart';
@@ -56,13 +53,13 @@ class MyApp extends StatelessWidget {
         '/': (context) => const MyHomePage(title: 'All Ebooks'),
         '/my-ebooks': (context) => const MyEbooksPage(),
         '/login': (context) => const LoginPage(),
-        // '/device-verification': (context) => const DeviceVerificationPage(),
         '/profile': (context) => const ProfilePage(),
-        '/device-verification': (_) => const DeviceVerificationIndexScreen(),
-        '/device-add': (_) => const DeviceAddScreen(),
-        '/device-change': (_) => const DeviceChangeScreen(),
-        '/device-replace-request': (_) => const DeviceReplaceRequestScreen(),
-        '/device-info': (_) => const DeviceInfoScreen(),
+        '/device-verification': (_) => const DeviceVerificationScreen(),
+        '/device-verification-otp': (_) =>
+            const DeviceVerificationOtpScreen(),
+        '/device-verification-reason': (_) =>
+            const DeviceVerificationReasonSubmitScreen(),
+        '/device-info': (_) => const DeviceVerificationScreen(),
         '/my-bookmarks': (_) => const MyBookmarksPage(),
         '/my-flags': (_) => const MyFlagsPage(),
         '/my-notes': (_) => const MyNotesPage(),

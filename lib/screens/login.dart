@@ -8,6 +8,7 @@ import 'package:ebook_project/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ebook_project/services/local_storage_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -116,6 +117,7 @@ class _LoginPageState extends State<LoginPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('token', token);
       await prefs.setString('userName', name);
+      await LocalStorageService.setString(LocalStorageService.token, token);
 
       _snack('Welcome back!', 'Signed in successfully.',
           bgColor: AppColors.success, icon: Icons.check_circle_rounded);

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:android_id/android_id.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,14 +11,18 @@ class DeviceUuidStore {
 
   static Future<String> getOrCreate() async {
     final prefs = await SharedPreferences.getInstance();
-    final existing = prefs.getString(_key);
-    if (existing != null && existing.trim().isNotEmpty) return existing.trim();
-
     final stableId = await _getStablePlatformId();
     if (stableId != null && stableId.trim().isNotEmpty) {
-      await prefs.setString(_key, stableId.trim());
-      return stableId.trim();
+      final stable = stableId.trim();
+      final existing = prefs.getString(_key)?.trim();
+      if (existing == null || existing.isEmpty || existing != stable) {
+        await prefs.setString(_key, stable);
+      }
+      return stable;
     }
+
+    final existing = prefs.getString(_key);
+    if (existing != null && existing.trim().isNotEmpty) return existing.trim();
 
     final uuid = _generateUuidV4();
     await prefs.setString(_key, uuid);
@@ -28,8 +33,10 @@ class DeviceUuidStore {
     try {
       final info = DeviceInfoPlugin();
       if (Platform.isAndroid) {
-        final android = await info.androidInfo;
-        return android.id;
+        const androidId = AndroidId();
+        final id = await androidId.getId();
+        if (id != null && id.trim().isNotEmpty) return id.trim();
+        return null;
       }
       if (Platform.isIOS) {
         final ios = await info.iosInfo;

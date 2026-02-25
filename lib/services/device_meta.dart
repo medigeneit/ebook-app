@@ -1,10 +1,11 @@
 import 'dart:io';
+import 'package:android_id/android_id.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class DeviceMeta {
   static Future<Map<String, String>> headers({
-    required String appDeviceUuid, // আপনার _gns-ddt uuid
+    required String appDeviceUuid, // _gns-ddt uuid
   }) async {
     final info = DeviceInfoPlugin();
     final pkg = await PackageInfo.fromPlatform();
@@ -19,8 +20,9 @@ class DeviceMeta {
       final a = await info.androidInfo;
       brand = a.brand ?? '';
       model = a.model ?? '';
-      // androidId (হয়তো null হতে পারে কিছু ডিভাইসে)
-      deviceId = a.id ?? appDeviceUuid;
+      const androidId = AndroidId();
+      final id = await androidId.getId();
+      deviceId = (id != null && id.trim().isNotEmpty) ? id.trim() : appDeviceUuid;
       osVersion = 'Android ${a.version.release ?? ''}'.trim();
     } else if (Platform.isIOS) {
       final i = await info.iosInfo;

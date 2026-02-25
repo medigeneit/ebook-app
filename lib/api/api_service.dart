@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:ebook_project/api/routes.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ebook_project/services/device_meta.dart';
 
 class ApiService {
   ApiService({http.Client? client}) : _client = client ?? http.Client();
@@ -334,6 +335,15 @@ class ApiService {
     headers['X-GNS-DDT'] = deviceUuid;
     headers['X-DEVICE-TYPE'] = _deviceType();
     headers['User-Agent'] = userAgent;
+
+    // Attach richer device meta (brand/model/os/app version + device id)
+    try {
+      final meta = await DeviceMeta.headers(appDeviceUuid: deviceUuid);
+      headers.addAll(meta);
+    } catch (_) {
+      // ignore device meta errors
+    }
+
     print('headers: $headers');
     return headers;
   }

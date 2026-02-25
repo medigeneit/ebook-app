@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:ebook_project/api/api_service.dart';
+import 'package:ebook_project/utils/device_info_util.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -36,6 +37,8 @@ class _SplashPageState extends State<SplashPage>
 
   Future<void> _bootstrap() async {
     await Future.delayed(const Duration(milliseconds: 1100));
+
+    await DeviceInfoUtil.saveDeviceInfo();
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');

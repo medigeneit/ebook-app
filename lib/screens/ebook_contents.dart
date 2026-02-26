@@ -16,6 +16,8 @@ import 'package:ebook_project/screens/practice/practice_questions.dart';
 import 'package:ebook_project/utils/token_store.dart';
 import 'package:flutter/material.dart';
 
+import '../components/ebook/modals/word_index_sheet.dart';
+
 class EbookContentsPage extends StatefulWidget {
   final String ebookId;
   final String subjectId;
@@ -26,6 +28,7 @@ class EbookContentsPage extends StatefulWidget {
   final String subjectTitle;
   final String chapterTitle;
   final String topicTitle;
+
   final int? focusContentId;
 
   const EbookContentsPage({
@@ -116,9 +119,13 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   Future<void> fetchEbookContents() async {
     try {
       final api = ApiService();
-      final data = await api.fetchEbookData(
-        "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents",
-      );
+
+      var endpoint =
+          "/v1/ebooks/${widget.ebookId}/subjects/${widget.subjectId}/chapters/${widget.chapterId}/topics/${widget.topicId}/contents";
+
+      endpoint = await TokenStore.attachPracticeToken(endpoint);
+
+      final data = await api.fetchEbookData(endpoint);
 
       if (!mounted) return;
       setState(() {
@@ -193,6 +200,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     final bm = <int, bool>{};
     final fl = <int, bool>{};
 
+    // ✅ চাইলে Future.wait করে parallel করা যায়
     for (final id in ids) {
       final b = await _getBookmark(api, id);
       if (b != null) bm[id] = b;
@@ -280,7 +288,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     }
   }
 
-  // ✅ NEW: underline save হলে লোকাল লিস্টে title আপডেট (copyWith ছাড়াই)
+  // ✅ underline save হলে লোকাল লিস্টে title আপডেট
   void _applyUnderlinedTitle(int contentId, String updatedTitleHtml) {
     final i = ebookContents.indexWhere((e) => e.id == contentId);
     if (i == -1) return;
@@ -289,7 +297,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
 
     ebookContents[i] = EbookContent(
       id: old.id,
-      title: updatedTitleHtml, // ✅ শুধু এটায় change
+      title: updatedTitleHtml,
       type: old.type,
       pageNo: old.pageNo,
       options: old.options,
@@ -304,8 +312,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
   // resolved titles
   String get _subjectTitleResolved {
     if (widget.subjectTitle.trim().isNotEmpty) return widget.subjectTitle.trim();
-    final hit =
-    sidebarSubjects.where((s) => s.id.toString() == widget.subjectId);
+    final hit = sidebarSubjects.where((s) => s.id.toString() == widget.subjectId);
     return hit.isNotEmpty ? hit.first.title : 'SUBJECT';
   }
 
@@ -320,8 +327,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     final api = ApiService();
 
     if (parent.type == SidebarItemType.subject) {
-      var endpoint =
-          "/v1/ebooks/${widget.ebookId}/subjects/${parent.id}/chapters";
+      var endpoint = "/v1/ebooks/${widget.ebookId}/subjects/${parent.id}/chapters";
       endpoint = await TokenStore.attachPracticeToken(endpoint);
 
       final data = await api.fetchEbookData(endpoint);
@@ -368,8 +374,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
           hasChildren: false,
           meta: {
             'subjectId': subjectId,
-            'subjectTitle':
-            parent.meta['subjectTitle'] ?? _subjectTitleResolved,
+            'subjectTitle': parent.meta['subjectTitle'] ?? _subjectTitleResolved,
             'chapterId': parent.id,
             'chapterTitle': parent.title,
           },
@@ -389,8 +394,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
       final chapterId = it.meta["chapterId"] ?? "";
       final topicId = it.id;
 
-      if (it.title.trim().toLowerCase() == "practice questions" &&
-          it.hasPractice == true) {
+      if (it.title.trim().toLowerCase() == "practice questions" && it.hasPractice == true) {
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -405,6 +409,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
         );
         return;
       }
+
       if (it.title.trim().toLowerCase() == "practice questions") {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Practice questions not available')),
@@ -435,9 +440,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     setState(() => showModalLoader = true);
     try {
       final api = ApiService();
-      final response = await api.fetchRawTextData(
-        "${_noteBase(contentId)}/discussion",
-      );
+      final response = await api.fetchRawTextData("${_noteBase(contentId)}/discussion");
 
       if (!mounted) return;
       setState(() {
@@ -458,9 +461,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     setState(() => showModalLoader = true);
     try {
       final api = ApiService();
-      final response = await api.fetchRawTextData(
-        "${_noteBase(contentId)}/references",
-      );
+      final response = await api.fetchRawTextData("${_noteBase(contentId)}/references");
 
       if (!mounted) return;
       setState(() {
@@ -481,9 +482,7 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
     setState(() => showModalLoader = true);
     try {
       final api = ApiService();
-      final data = await api.fetchEbookData(
-        "${_noteBase(contentId)}/solve-videos",
-      );
+      final data = await api.fetchEbookData("${_noteBase(contentId)}/solve-videos");
 
       solveVideos = (data['solve_videos'] as List? ?? [])
           .map((e) => {
@@ -553,10 +552,8 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                   selectedTF: selectedAnswers,
                   selectedSBA: selectedSBAAnswers,
                   showCorrect: showCorrect,
-
                   noteBasePath: _noteBase,
                   contentBasePath: _noteBase,
-
                   bookmarked: bookmarked,
                   flagged: flagged,
                   bookmarkBusy: bookmarkBusy,
@@ -576,32 +573,73 @@ class _EbookContentsPageState extends State<EbookContentsPage> {
                     });
                   },
 
-                  onTapDiscussion: (cid) =>
-                      () => fetchDiscussionContent(cid),
-                  onTapReference: (cid) =>
-                      () => fetchReferenceContent(cid),
+                  onTapDiscussion: (cid) => () => fetchDiscussionContent(cid),
+                  onTapReference: (cid) => () => fetchReferenceContent(cid),
                   onTapVideo: (cid) => () => fetchSolveVideos(cid),
 
                   onChooseTF: (optionId, label) {
                     setState(() {
                       final sel = selectedAnswers[optionId];
-                      selectedAnswers[optionId] =
-                      (sel == label) ? '' : label;
+                      selectedAnswers[optionId] = (sel == label) ? '' : label;
                     });
                   },
                   onChooseSBA: (contentId, slNo) {
                     setState(() {
                       final sel = selectedSBAAnswers[contentId];
-                      selectedSBAAnswers[contentId] =
-                      (sel == slNo) ? '' : slNo;
+                      selectedSBAAnswers[contentId] = (sel == slNo) ? '' : slNo;
                     });
                   },
 
-                  // ✅ এখানে copyWith বাদ, constructor দিয়ে update
                   onUnderlineSaved: (cid, html) {
                     setState(() {
                       _applyUnderlinedTitle(cid, html);
                     });
+                  },
+
+                  /// ✅ Word Index (IMPORTANT)
+                  onTapWord: (word) {
+                    // ✅ আগের loader থাকলে বন্ধ করে দিন, না হলে sheet ঢেকে যাবে
+                    if (showModalLoader) {
+                      setState(() => showModalLoader = false);
+                    }
+
+                    WordIndexSheet.open(
+                      context: context,
+                      word: word,
+                      ebookId: widget.ebookId,
+                      subjectId: widget.subjectId,
+                      chapterId: widget.chapterId,
+                      topicId: widget.topicId,
+
+                      // ✅ types dynamic রাখলাম, যে কোনো sheet signature-এ ম্যাচ করবে
+                      onOpenQuestion: ({
+                        required ebookId,
+                        required subjectId,
+                        required chapterId,
+                        required topicId,
+                        required contentId,
+                      }) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EbookContentsPage(
+                              ebookId: ebookId.toString(),
+                              subjectId: subjectId.toString(),
+                              chapterId: chapterId.toString(),
+                              topicId: topicId.toString(),
+                              ebookName: widget.ebookName,
+
+                              // ✅ breadcrumb ঠিক রাখতে resolved title
+                              subjectTitle: _subjectTitleResolved,
+                              chapterTitle: _chapterTitleResolved,
+                              topicTitle: _topicTitleResolved,
+
+                              focusContentId: int.tryParse(contentId.toString()) ?? 0,
+                            ),
+                          ),
+                        );
+                      },
+                    );
                   },
                 ),
               ),

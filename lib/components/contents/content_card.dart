@@ -1,10 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:ebook_project/models/ebook_content.dart';
-import 'package:ebook_project/components/contents/image_with_placeholder.dart';
 import 'package:ebook_project/theme/app_colors.dart';
 
 import '../../presentation/screens/question_page_with_zoom.dart';
+
+/// ===============================
+/// ✅ WordIndex helpers (NEW)
+/// ===============================
+
+final RegExp _wordWrapExp = RegExp(
+  r'''<(\w+)([^>]*?)\sdata-word\s*=\s*(?:"([^"]+)"|'([^']+)')([^>]*)>(.*?)</\1>''',
+  dotAll: true,
+);
+
+String _injectWordIndexLinks(String html) {
+  return html.replaceAllMapped(_wordWrapExp, (m) {
+    final word = (m.group(3) ?? m.group(4) ?? '').trim();
+    final inner = (m.group(6) ?? '');
+    if (word.isEmpty) return m.group(0) ?? '';
+    final enc = Uri.encodeQueryComponent(word);
+    return '<a href="wordindex://open?word=$enc">$inner</a>';
+  });
+}
+
+void _handleWordIndexTap(String? url, void Function(String word)? onTapWord) {
+  if (url == null || onTapWord == null) return;
+
+  final uri = Uri.tryParse(url);
+  if (uri == null) return;
+
+  if (uri.scheme == 'wordindex') {
+    final word = uri.queryParameters['word'] ?? '';
+    if (word.trim().isNotEmpty) {
+      onTapWord(word.trim());
+    }
+  }
+}
+
+/// ===============================
+/// ✅ ContentCard
+/// ===============================
 
 class ContentCard extends StatelessWidget {
   final EbookContent content;
@@ -17,22 +53,25 @@ class ContentCard extends StatelessWidget {
   final VoidCallback? onTapReference;
   final VoidCallback? onTapVideo;
 
-  /// ✅ ActionBar এর Note বাটনের জন্য (শুধু note sheet)
+  /// ✅ ActionBar এর Note বাটনের জন্য
   final VoidCallback? onTapNote;
 
-  /// ✅ Header edit icon এর জন্য (Note + Underline sheet)
+  /// ✅ Header edit icon
   final VoidCallback? onTapEdit;
 
   final void Function(int optionId, String label) onChooseTF;
   final void Function(int contentId, String slNo) onChooseSBA;
 
-  // ✅ new
+  // ✅ bookmark/flag
   final bool isBookmarked;
   final bool isFlagged;
   final bool bookmarkLoading;
   final bool flagLoading;
   final VoidCallback? onTapBookmark;
   final VoidCallback? onTapFlag;
+
+  /// ✅ NEW: word index click callback
+  final void Function(String word)? onTapWord;
 
   const ContentCard({
     super.key,
@@ -54,6 +93,7 @@ class ContentCard extends StatelessWidget {
     this.onTapVideo,
     this.onTapNote,
     this.onTapEdit,
+    this.onTapWord,
   });
 
   @override
@@ -61,14 +101,23 @@ class ContentCard extends StatelessWidget {
     final titleWidget = (content.type == 3)
         ? _ImageFromHtml(htmlString: content.title)
         : Html(
-      data: "<b>${content.title}</b>",
-      style: {
-        "b": Style(
-          fontSize: FontSize(14.5),
-          lineHeight: LineHeight.number(1.30),
-        )
-      },
-    );
+            data: "<div>${_injectWordIndexLinks(content.title)}</div>",
+            style: {
+              "div": Style(
+                fontSize: FontSize(14.5),
+                fontWeight: FontWeight.w800,
+                lineHeight: LineHeight.number(1.30),
+                margin: Margins.zero,
+              ),
+              "a": Style(
+                textDecoration: TextDecoration.underline,
+                fontWeight: FontWeight.w900,
+              ),
+            },
+            onLinkTap: (url, attrs, element) {
+              _handleWordIndexTap(url, onTapWord);
+            },
+          );
 
     final headerIcons = Row(
       mainAxisSize: MainAxisSize.min,
@@ -107,16 +156,9 @@ class ContentCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ icons on top, title on next line
-            Align(
-              alignment: Alignment.centerRight,
-              child: headerIcons,
-            ),
+            Align(alignment: Alignment.centerRight, child: headerIcons),
             const SizedBox(height: 4),
             titleWidget,
-
-            // const SizedBox(height: 4),
-
             OptionList(
               content: content,
               showCorrect: showCorrect,
@@ -124,18 +166,15 @@ class ContentCard extends StatelessWidget {
               selectedSBA: selectedSBA,
               onChooseTF: onChooseTF,
               onChooseSBA: onChooseSBA,
+              onTapWord: onTapWord, // ✅ NEW
             ),
-
             const SizedBox(height: 10),
-
             ActionBar(
               showAnswerActive: showCorrect,
               onToggleAnswer: onToggleAnswer,
               onTapDiscussion: onTapDiscussion,
               onTapReference: onTapReference,
               onTapVideo: onTapVideo,
-
-              /// ✅ ActionBar Note (শুধু note sheet)
               onTapNote: onTapNote,
             ),
           ],
@@ -166,18 +205,19 @@ class _HeaderIcon extends StatelessWidget {
       child: Center(
         child: loading
             ? const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        )
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             : IconButton(
-          onPressed: onTap,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints.tightFor(width: 34, height: 34),
-          iconSize: 20,
-          splashRadius: 18,
-          icon: Icon(icon, color: color),
-        ),
+                onPressed: onTap,
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints.tightFor(width: 34, height: 34),
+                iconSize: 20,
+                splashRadius: 18,
+                icon: Icon(icon, color: color),
+              ),
       ),
     );
   }
@@ -193,6 +233,9 @@ class OptionList extends StatelessWidget {
   final void Function(int optionId, String label) onChooseTF;
   final void Function(int contentId, String slNo) onChooseSBA;
 
+  /// ✅ NEW
+  final void Function(String word)? onTapWord;
+
   const OptionList({
     super.key,
     required this.content,
@@ -201,6 +244,7 @@ class OptionList extends StatelessWidget {
     required this.selectedSBA,
     required this.onChooseTF,
     required this.onChooseSBA,
+    this.onTapWord,
   });
 
   @override
@@ -208,13 +252,29 @@ class OptionList extends StatelessWidget {
     final opts = [...content.options]
       ..sort((a, b) => (a.slNo ?? '').compareTo(b.slNo ?? ''));
 
-    final cleanAns = (content.answer ?? '')
-        .replaceAll(RegExp(r'[^TFtf]'), '')
-        .toUpperCase();
+    final cleanAns =
+        (content.answer ?? '').replaceAll(RegExp(r'[^TFtf]'), '').toUpperCase();
 
     return Column(
       children: List.generate(opts.length, (i) {
         final option = opts[i];
+
+        Widget optionHtml() {
+          final html = _injectWordIndexLinks(option.title);
+          return Html(
+            data: "<div>$html</div>",
+            style: {
+              "div": Style(margin: Margins.zero),
+              "a": Style(
+                textDecoration: TextDecoration.underline,
+                fontWeight: FontWeight.w800,
+              ),
+            },
+            onLinkTap: (url, attrs, element) {
+              _handleWordIndexTap(url, onTapWord);
+            },
+          );
+        }
 
         if (content.type == 1) {
           final answerKey = (i < cleanAns.length) ? cleanAns[i] : '';
@@ -239,7 +299,7 @@ class OptionList extends StatelessWidget {
                   onTap: () => onChooseTF(option.id, 'F'),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Html(data: option.title)),
+                Expanded(child: optionHtml()),
               ],
             ),
           );
@@ -265,7 +325,7 @@ class OptionList extends StatelessWidget {
                   onTap: () => onChooseSBA(content.id, option.slNo ?? ''),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Html(data: option.title)),
+                Expanded(child: optionHtml()),
               ],
             ),
           );
@@ -381,6 +441,7 @@ class RoundOptionButton extends StatelessWidget {
 
 class _ImageFromHtml extends StatelessWidget {
   final String htmlString;
+
   const _ImageFromHtml({required this.htmlString});
 
   @override

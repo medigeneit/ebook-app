@@ -36,8 +36,11 @@ class EbookContentsBody extends StatelessWidget {
   final int? focusContentId;
   final GlobalKey? focusKey;
 
-  /// ✅ NEW: underline save হলে parent কে notify
+  /// ✅ underline save হলে parent কে notify
   final void Function(int contentId, String updatedTitleHtml)? onUnderlineSaved;
+
+  /// ✅ NEW: Word index tap callback
+  final void Function(String word)? onTapWord;
 
   const EbookContentsBody({
     super.key,
@@ -62,7 +65,8 @@ class EbookContentsBody extends StatelessWidget {
     this.scrollController,
     this.focusContentId,
     this.focusKey,
-    this.onUnderlineSaved, // ✅ constructor এও যোগ
+    this.onUnderlineSaved,
+    this.onTapWord, // ✅ NEW
   });
 
   Future<void> _openUnderline({
@@ -84,7 +88,6 @@ class EbookContentsBody extends StatelessWidget {
 
     if (updatedHtml == null) return;
 
-    // ✅ parent page কে notify
     onUnderlineSaved?.call(content.id, updatedHtml);
   }
 
@@ -124,10 +127,8 @@ class EbookContentsBody extends StatelessWidget {
                   ? () => onTapVideo?.call(content.id)()
                   : null,
 
-              /// ✅ header underline/edit icon → direct underline modal
               onTapEdit: () => _openUnderline(context: context, content: content),
 
-              /// ✅ ActionBar note → শুধু Note
               onTapNote: () => NoteBottomSheet.open(
                 context: context,
                 basePath: noteBasePath(content.id),
@@ -135,6 +136,9 @@ class EbookContentsBody extends StatelessWidget {
 
               onChooseTF: onChooseTF,
               onChooseSBA: onChooseSBA,
+
+              /// ✅ NEW
+              onTapWord: onTapWord,
             ),
           ),
         );
@@ -184,10 +188,8 @@ class EbookContentsBody extends StatelessWidget {
               ? () => onTapVideo?.call(content.id)()
               : null,
 
-          /// ✅ header underline/edit icon → direct underline modal
           onTapEdit: () => _openUnderline(context: context, content: content),
 
-          /// ✅ ActionBar note → শুধু Note
           onTapNote: () => NoteBottomSheet.open(
             context: context,
             basePath: noteBasePath(content.id),
@@ -195,6 +197,9 @@ class EbookContentsBody extends StatelessWidget {
 
           onChooseTF: onChooseTF,
           onChooseSBA: onChooseSBA,
+
+          /// ✅ NEW
+          onTapWord: onTapWord,
         );
       },
     );
